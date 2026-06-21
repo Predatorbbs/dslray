@@ -1,0 +1,41 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "mingw-release",
+            "displayName": "MinGW 64-bit · Release",
+            "description": "Сборка под Qt 6.7+ MinGW. Бинарь — build/appDSLRay.exe.",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "mingw-debug",
+            "displayName": "MinGW 64-bit · Debug",
+            "inherits": "mingw-release",
+            "binaryDir": "${sourceDir}/build-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "mingw-release",
+            "configurePreset": "mingw-release",
+            "targets": ["appDSLRay"]
+        },
+        {
+            "name": "mingw-debug",
+            "configurePreset": "mingw-debug",
+            "targets": ["appDSLRay"]
+        }
+    ]
+}

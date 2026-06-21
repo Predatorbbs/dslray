@@ -23,6 +23,7 @@ find_package(Qt6 6.7 REQUIRED COMPONENTS
 qt_standard_project_setup(REQUIRES 6.7)
 
 qt_add_executable(appDSLRay
+    MANUAL_FINALIZATION
     src/main.cpp
     src/projectcontroller.h
     src/projectcontroller.cpp
@@ -60,10 +61,19 @@ target_link_libraries(appDSLRay PRIVATE
 )
 
 # Под Windows прячем консольное окно у release-сборки.
+# OUTPUT_NAME фиксируем явно — иначе Qt Creator на новом Qt с установленным
+# Qt ApplicationManager иногда подсовывает в Run-конфиг фантомный
+# appman-controller вместо нашего бинаря.
 set_target_properties(appDSLRay PROPERTIES
     WIN32_EXECUTABLE ON
     MACOSX_BUNDLE OFF
+    OUTPUT_NAME appDSLRay
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
+
+# Явная финализация Qt-таргета — помогает Qt Creator однозначно
+# определить наш appDSLRay как primary executable проекта.
+qt_finalize_target(appDSLRay)
 
 include(GNUInstallDirs)
 install(TARGETS appDSLRay
