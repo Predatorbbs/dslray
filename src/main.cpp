@@ -6,8 +6,8 @@ int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
 
-    QGuiApplication::setApplicationName("DSLRAY");
-    QGuiApplication::setApplicationDisplayName("DSLRAY");
+    QGuiApplication::setApplicationName("DSLRay");
+    QGuiApplication::setApplicationDisplayName("DSLRay");
     QGuiApplication::setOrganizationName("DSLRay");
     QGuiApplication::setOrganizationDomain("dslray.local");
     QGuiApplication::setApplicationVersion("0.1.0");
@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
         []() { QCoreApplication::exit(-1); },
         Qt::QueuedConnection);
 
-    engine.loadFromModule("DSLRAY", "Main");
+    engine.loadFromModule("DSLRay", "Main");
 
     return app.exec();
 }

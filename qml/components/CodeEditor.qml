@@ -1,5 +1,5 @@
 import QtQuick
-import DSLStudio
+import DSLRay
 
 // Панель «КОД» — текстовый редактор .dsl-файла.
 // На шаге 1 — только рамка и подпись. Реальный TextArea с

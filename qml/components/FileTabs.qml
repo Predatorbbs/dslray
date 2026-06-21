@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import DSLStudio
+import DSLRay
 
 // Строка вкладок открытых файлов.
 // На шаге 1 — две статичные вкладки и кнопка «+», как в макете.

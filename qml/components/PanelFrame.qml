@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import DSLStudio
+import DSLRay
 
 // Карточка-панель: белый фон, граница, скругление, шапка с заголовком
 // и слотом для дополнительных контролов справа (зум, кнопки и т.п.).

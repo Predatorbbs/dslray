@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import DSLStudio
+import DSLRay
 
 // Нижняя строка состояния. На шаге 1 — все значения захардкожены.
 Rectangle {

@@ -1,4 +1,4 @@
-# DSL Studio (DSLRay) — шаг 1: каркас приложения
+# DSLRay — шаг 1: каркас приложения
 
 Десктоп-IDE для собственного DSL описания интерфейсов. Qt 6 / QML, Windows 10/11.
 
@@ -32,13 +32,13 @@ cd <папка с проектом>
 cmake -S . -B build -G "MinGW Makefiles" ^
     -DCMAKE_PREFIX_PATH=C:\Qt\6.7.0\mingw_64
 cmake --build build --config Release
-build\appDSLStudio.exe
+build\appDSLRay.exe
 ```
 
 ## Структура файлов
 
 ```
-DSLStudio/
+DSLRay/
 ├── CMakeLists.txt
 ├── src/
 │   └── main.cpp
@@ -62,7 +62,7 @@ DSLStudio/
 
 | Что | Как | Почему |
 |---|---|---|
-| QML-модуль | один URI `DSLStudio` для всего | проще импорты: `import DSLStudio` — и сразу доступны `Theme`, `Toolbar`, `PanelFrame` и т.д. |
+| QML-модуль | один URI `DSLRay` для всего | проще импорты: `import DSLRay` — и сразу доступны `Theme`, `Toolbar`, `PanelFrame` и т.д. |
 | Стиль Controls | `Basic` | весь UI рисуем сами, нативный стиль мешает |
 | Шрифт | `"Segoe UI"` / `"Consolas"` через `Theme` | системные шрифты Windows, без бандла |
 | Скругление шапок панелей | `topLeftRadius`/`topRightRadius` на Rectangle | требует Qt 6.7+ — оттуда и нижняя планка версии |

@@ -1,9 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import DSLRAY
+import DSLRay
 
-// Корневое окно DSLRAY. Раскладка:
+// Корневое окно DSLRay. Раскладка:
 //
 //   ┌── Toolbar ─────────────────────────────────────────────┐
 //   ├── FileTabs ────────────────────────────────────────────┤
@@ -24,7 +24,7 @@ ApplicationWindow {
     height: 900
     minimumWidth: 1100
     minimumHeight: 700
-    title: "DSLRAY"
+    title: "DSLRay"
 
     color: Theme.bgApp
 

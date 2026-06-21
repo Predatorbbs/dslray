@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import DSLStudio
+import DSLRay
 
 // Верхний тулбар. На шаге 1 — только визуал; сигналы и обработчики
 // добавим на шаге 3, когда подключим C++-контроллер.

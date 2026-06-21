@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(DSLRAY
+project(DSLRay
     VERSION 0.1.0
     DESCRIPTION "DSLRay — desktop IDE for the DSL UI language"
     LANGUAGES CXX
@@ -21,7 +21,7 @@ find_package(Qt6 6.7 REQUIRED COMPONENTS
 
 qt_standard_project_setup(REQUIRES 6.7)
 
-qt_add_executable(appDSLRAY
+qt_add_executable(appDSLRay
     src/main.cpp
 )
 
@@ -30,8 +30,8 @@ set_source_files_properties(qml/theme/Theme.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
 
-qt_add_qml_module(appDSLRAY
-    URI DSLRAY
+qt_add_qml_module(appDSLRay
+    URI DSLRay
     VERSION 1.0
     QML_FILES
         qml/Main.qml
@@ -47,7 +47,7 @@ qt_add_qml_module(appDSLRAY
         qml/components/PropertiesPanel.qml
 )
 
-target_link_libraries(appDSLRAY PRIVATE
+target_link_libraries(appDSLRay PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Qml
@@ -56,13 +56,13 @@ target_link_libraries(appDSLRAY PRIVATE
 )
 
 # Под Windows прячем консольное окно у release-сборки.
-set_target_properties(appDSLRAY PROPERTIES
+set_target_properties(appDSLRay PROPERTIES
     WIN32_EXECUTABLE ON
     MACOSX_BUNDLE OFF
 )
 
 include(GNUInstallDirs)
-install(TARGETS appDSLRAY
+install(TARGETS appDSLRay
     BUNDLE  DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

@@ -1,5 +1,5 @@
 import QtQuick
-import DSLStudio
+import DSLRay
 
 // Панель «ПРОЕКТ» — дерево файлов проекта.
 // На шаге 1 — пустое тело; реальное TreeView появится на шаге 5
