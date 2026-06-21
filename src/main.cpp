@@ -1,6 +1,9 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQmlContext>
 #include <QQuickStyle>
+
+#include "projectcontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -15,7 +18,10 @@ int main(int argc, char *argv[])
     // Базовый стиль Controls — рисуем UI сами, лишний нативный стиль ни к чему.
     QQuickStyle::setStyle("Basic");
 
+    ProjectController project;
+
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty("Project", &project);
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,

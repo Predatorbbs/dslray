@@ -17,12 +17,15 @@ find_package(Qt6 6.7 REQUIRED COMPONENTS
     Qml
     Quick
     QuickControls2
+    Widgets    # QFileSystemModel живёт в QtWidgets — UI-виджеты при этом не используются
 )
 
 qt_standard_project_setup(REQUIRES 6.7)
 
 qt_add_executable(appDSLRay
     src/main.cpp
+    src/projectcontroller.h
+    src/projectcontroller.cpp
 )
 
 # Theme.qml — синглтон. Свойство нужно установить ДО qt_add_qml_module.
@@ -53,6 +56,7 @@ target_link_libraries(appDSLRay PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
+    Qt6::Widgets
 )
 
 # Под Windows прячем консольное окно у release-сборки.
