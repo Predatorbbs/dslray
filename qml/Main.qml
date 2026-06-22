@@ -32,6 +32,9 @@ ApplicationWindow {
     font.family: Theme.fontSans
     font.pixelSize: Theme.fontContent
 
+    // Открыто ли всплывающее меню приложения (попап поверх всего окна).
+    property bool menuOpen: false
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -39,6 +42,8 @@ ApplicationWindow {
         // ── Тулбар ─────────────────────────────────────────────────
         Toolbar {
             Layout.fillWidth: true
+            menuActive: window.menuOpen
+            onMenuClicked: window.menuOpen = !window.menuOpen
         }
 
         // ── Полоса вкладок ────────────────────────────────────────
@@ -120,5 +125,12 @@ ApplicationWindow {
         StatusBar {
             Layout.fillWidth: true
         }
+    }
+
+    // ── Всплывающее меню приложения ───────────────────────────────────
+    // Лежит поверх всей раскладки: затемняет окно и показывает попап.
+    MenuOverlay {
+        open: window.menuOpen
+        onCloseRequested: window.menuOpen = false
     }
 }

@@ -3,6 +3,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 
+#include "documentcontroller.h"
 #include "projectcontroller.h"
 
 int main(int argc, char *argv[])
@@ -19,9 +20,11 @@ int main(int argc, char *argv[])
     QQuickStyle::setStyle("Basic");
 
     ProjectController project;
+    DocumentController documents;
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("Project", &project);
+    engine.rootContext()->setContextProperty("Docs", &documents);
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,

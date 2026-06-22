@@ -114,6 +114,42 @@ bool ProjectController::createFile(const QString &parentPath, const QString &nam
     return true;
 }
 
+QString ProjectController::renameItem(const QString &path, const QString &newName)
+{
+    QFileInfo info(path);
+    if (!info.exists())
+        return {};
+
+    const QString trimmed = newName.trimmed();
+    if (trimmed.isEmpty() || trimmed == info.fileName())
+        return {};
+    if (trimmed.contains(QLatin1Char('/')) || trimmed.contains(QLatin1Char('\\'))) {
+        emit errorOccurred(tr("Имя не должно содержать разделителей пути"));
+        return {};
+    }
+
+    const QString newPath = QDir(info.absolutePath()).filePath(trimmed);
+    if (QFile::exists(newPath)) {
+        emit errorOccurred(tr("Элемент '%1' уже существует").arg(trimmed));
+        return {};
+    }
+
+    if (info.isDir()) {
+        if (!QDir().rename(info.absoluteFilePath(), newPath)) {
+            emit errorOccurred(tr("Не удалось переименовать папку '%1'").arg(info.fileName()));
+            return {};
+        }
+    } else {
+        QFile f(info.absoluteFilePath());
+        if (!f.rename(newPath)) {
+            emit errorOccurred(tr("Не удалось переименовать '%1': %2")
+                                   .arg(info.fileName(), f.errorString()));
+            return {};
+        }
+    }
+    return QDir::cleanPath(newPath);
+}
+
 bool ProjectController::moveItem(const QString &sourcePath, const QString &targetDir)
 {
     if (sourcePath.isEmpty() || targetDir.isEmpty())

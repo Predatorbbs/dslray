@@ -49,6 +49,10 @@ public:
     Q_INVOKABLE bool createFile(const QString &parentPath, const QString &name);
     Q_INVOKABLE bool moveItem(const QString &sourcePath, const QString &targetDir);
 
+    // Переименовывает файл/папку. Возвращает новый абсолютный путь (разделители
+    // "/") при успехе или пустую строку при ошибке/без изменений.
+    Q_INVOKABLE QString renameItem(const QString &path, const QString &newName);
+
 signals:
     void rootPathChanged();
     void errorOccurred(const QString &message);

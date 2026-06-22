@@ -27,6 +27,8 @@ qt_add_executable(appDSLRay
     src/main.cpp
     src/projectcontroller.h
     src/projectcontroller.cpp
+    src/documentcontroller.h
+    src/documentcontroller.cpp
 )
 
 # Theme.qml — синглтон. Свойство нужно установить ДО qt_add_qml_module.
@@ -41,6 +43,7 @@ qt_add_qml_module(appDSLRay
         qml/Main.qml
         qml/theme/Theme.qml
         qml/components/Toolbar.qml
+        qml/components/MenuOverlay.qml
         qml/components/FileTabs.qml
         qml/components/StatusBar.qml
         qml/components/PanelFrame.qml

@@ -5,16 +5,18 @@ import QtQuick.Layouts
 import DSLRay
 
 // Панель «ПРОЕКТ» — проводник по проекту.
-// Кнопки в шапке: «Открыть…» (FolderDialog), «+ файл», «+ папка».
-// Дерево файлов — QFileSystemModel из ProjectController. Поддерживает
-// drag-and-drop: подсветка строки для папки-цели (drop INTO),
-// линия сверху строки для файла-цели (drop в его родителя).
+// Кнопки в шапке: «Открыть» (FolderDialog), «Создать файл», «Создать каталог».
+// Дерево файлов — QFileSystemModel из ProjectController. Поддерживает:
+//  · drag-and-drop (подсветка папки-цели / линия для файла-цели);
+//  · открытие файла во вкладке по клику;
+//  · инлайн-переименование тройным кликом или клавишей F2 — при этом, если
+//    файл уже открыт, обновляется и заголовок его вкладки.
 PanelFrame {
     id: root
     title: "ПРОЕКТ"
     subtitle: Project.hasProject ? rootName() : ""
 
-    // Папка, в которую попадут «+ файл» / «+ папка».
+    // Папка, в которую попадут «Создать файл» / «Создать каталог».
     // Меняется при клике по ряду; по умолчанию — корень проекта.
     property string activeFolderPath: Project.rootPath
 
@@ -31,8 +33,15 @@ PanelFrame {
         if (!Project.hasProject)
             return
         pendingCreateMode = mode
-        nameField.text = (mode === "folder") ? "новая-папка" : "untitled.dsl"
-        nameField.selectAll()
+        nameField.text = (mode === "folder") ? "новая-папка" : "untitled.json"
+        // Для файла выделяем только имя без расширения — удобнее переименовать.
+        if (mode === "file") {
+            const dot = nameField.text.lastIndexOf(".")
+            if (dot > 0) nameField.select(0, dot)
+            else         nameField.selectAll()
+        } else {
+            nameField.selectAll()
+        }
         nameField.forceActiveFocus()
     }
 
@@ -49,33 +58,53 @@ PanelFrame {
     }
 
     headerRight: [
-        HeaderBtn { label: "Открыть…"; onClicked: openDialog.open() },
-        HeaderBtn { label: "+ файл";   btnEnabled: Project.hasProject; onClicked: root.startCreate("file") },
-        HeaderBtn { label: "+ папка";  btnEnabled: Project.hasProject; onClicked: root.startCreate("folder") }
+        HeaderIconBtn { glyph: "📂"; tip: "Открыть"; onClicked: openDialog.open() },
+        HeaderIconBtn { glyph: "📄"; badge: true; tip: "Создать файл";
+                        btnEnabled: Project.hasProject; onClicked: root.startCreate("file") },
+        HeaderIconBtn { glyph: "📁"; badge: true; tip: "Создать каталог";
+                        btnEnabled: Project.hasProject; onClicked: root.startCreate("folder") }
     ]
 
-    component HeaderBtn: Rectangle {
+    component HeaderIconBtn: Rectangle {
         id: hb
-        property string label: ""
-        property bool btnEnabled: true
+        property string glyph: ""
+        property bool   badge: false
+        property string tip: ""
+        property bool   btnEnabled: true
         signal clicked()
-        implicitWidth: hbText.implicitWidth + 14
+
+        implicitWidth: 26
         implicitHeight: 22
         radius: Theme.rSmall
         color: hover.hovered && hb.btnEnabled ? "#f0f1f4" : "transparent"
         border.color: hb.btnEnabled ? Theme.border : Theme.borderSoft
         border.width: 1
         opacity: hb.btnEnabled ? 1.0 : 0.45
+
         Text {
-            id: hbText
             anchors.centerIn: parent
-            text: hb.label
+            text: hb.glyph
+            font.pixelSize: 12
+        }
+        // «+» в углу — признак действия «создать».
+        Text {
+            visible: hb.badge
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: -2
+            anchors.rightMargin: 1
+            text: "+"
             font.family: Theme.fontSans
             font.pixelSize: 11
-            color: Theme.textMuted
+            font.bold: true
+            color: Theme.accent
         }
         HoverHandler { id: hover; enabled: hb.btnEnabled }
         TapHandler { enabled: hb.btnEnabled; onTapped: hb.clicked() }
+
+        ToolTip.visible: hover.hovered && hb.tip.length > 0
+        ToolTip.text: hb.tip
+        ToolTip.delay: 400
     }
 
     FolderDialog {
@@ -98,7 +127,7 @@ PanelFrame {
         spacing: 10
 
         Text {
-            text: "проект пока не открыт"
+            text: "Откройте каталог проекта"
             font.family: Theme.fontSans
             font.pixelSize: Theme.fontContent
             color: Theme.textGhost
@@ -113,7 +142,7 @@ PanelFrame {
             Text {
                 id: emptyText
                 anchors.centerIn: parent
-                text: "Открыть проект"
+                text: "Открыть"
                 color: Theme.accentFg
                 font.family: Theme.fontSans
                 font.pixelSize: Theme.fontContent
@@ -192,7 +221,19 @@ PanelFrame {
             property int    dropRow: -1
             property string dropMode: ""  // "" | "into" | "before"
 
+            // Инлайн-переименование: путь редактируемого элемента + выбранный ряд.
+            property string renamingPath: ""
+            property string selectedPath: ""
+
             ScrollBar.vertical: ScrollBar {}
+
+            // F2 — переименовать выбранный элемент.
+            Keys.onPressed: function (event) {
+                if (event.key === Qt.Key_F2 && tree.selectedPath.length > 0) {
+                    tree.renamingPath = tree.selectedPath
+                    event.accepted = true
+                }
+            }
 
             // У модели одна колонка, но TableView всё равно может попытаться
             // показать остальные. Принудительно даём ширину только нулевой.
@@ -216,17 +257,30 @@ PanelFrame {
                 readonly property string path:     rowItem.model.filePath
                 readonly property string nameText: rowItem.model.display
                 readonly property bool   dropping: tree.dropRow === rowItem.row
+                readonly property bool   renaming: tree.renamingPath === rowItem.path
 
                 implicitWidth: tree.width
                 implicitHeight: 22
                 visible: rowItem.column === 0
+
+                function commitRename() {
+                    const oldPath = rowItem.path
+                    const np = Project.renameItem(oldPath, renameField.text)
+                    tree.renamingPath = ""
+                    if (np && np.length > 0) {
+                        Docs.handlePathRenamed(oldPath, np)
+                        tree.selectedPath = np
+                    }
+                }
 
                 // Фон: подсветка папки-цели (drop INTO) или hover.
                 Rectangle {
                     anchors.fill: parent
                     color: rowItem.dropping && tree.dropMode === "into"
                            ? Qt.alpha(Theme.accent, 0.10)
-                           : (rowMouse.containsMouse ? Theme.bgSubtle : "transparent")
+                           : (rowItem.renaming || tree.selectedPath === rowItem.path
+                              ? Qt.alpha(Theme.accent, 0.06)
+                              : (rowHover.hovered ? Theme.bgSubtle : "transparent"))
                 }
 
                 // Линия-индикатор: drop сверху строки (в родителя этого файла).
@@ -265,6 +319,7 @@ PanelFrame {
                     }
 
                     Text {
+                        visible: !rowItem.renaming
                         anchors.verticalCenter: parent.verticalCenter
                         text: rowItem.nameText
                         font.family: Theme.fontSans
@@ -274,40 +329,97 @@ PanelFrame {
                     }
                 }
 
-                // Невидимый таргет для Drag — двигается под курсором, носит Drag.active.
+                // Поле инлайн-переименования (поверх имени).
+                TextField {
+                    id: renameField
+                    visible: rowItem.renaming
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: 4 + rowItem.depth * 14 + 34
+                    anchors.right: parent.right
+                    anchors.rightMargin: 6
+                    height: 20
+                    selectByMouse: true
+                    font.family: Theme.fontMono
+                    font.pixelSize: Theme.fontContent
+                    color: Theme.textPrimary
+                    leftPadding: 5; rightPadding: 5
+                    topPadding: 0;  bottomPadding: 0
+                    background: Rectangle {
+                        color: Theme.bgPanel
+                        border.color: Theme.accent
+                        border.width: 1
+                        radius: Theme.rSmall
+                    }
+                    onVisibleChanged: {
+                        if (visible) {
+                            text = rowItem.nameText
+                            const dot = text.lastIndexOf(".")
+                            if (!rowItem.isDir && dot > 0) select(0, dot)
+                            else                            selectAll()
+                            forceActiveFocus()
+                        }
+                    }
+                    onAccepted: rowItem.commitRename()
+                    Keys.onEscapePressed: tree.renamingPath = ""
+                    onActiveFocusChanged: {
+                        if (!activeFocus && rowItem.renaming)
+                            rowItem.commitRename()
+                    }
+                }
+
+                // Невидимый таргет для Drag — носит Drag.active.
                 Item {
                     id: dragGhost
                     width: 1; height: 1; visible: false
-                    Drag.active: rowMouse.drag.active
+                    Drag.active: rowDrag.active
                     Drag.source: rowItem
                     Drag.hotSpot.x: 0
                     Drag.hotSpot.y: 0
                 }
 
-                MouseArea {
-                    id: rowMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton
-                    drag.target: dragGhost
-                    drag.threshold: 5
+                HoverHandler { id: rowHover }
 
-                    onClicked: function (mouse) {
-                        // Клик в зону шеврона — раскрыть/свернуть; иначе — выбрать.
+                DragHandler {
+                    id: rowDrag
+                    enabled: !rowItem.renaming
+                    target: dragGhost
+                    dragThreshold: 5
+                }
+
+                TapHandler {
+                    id: rowTap
+                    enabled: !rowItem.renaming
+                    acceptedButtons: Qt.LeftButton
+                    onTapped: function (point) {
+                        tree.forceActiveFocus()
+                        tree.selectedPath = rowItem.path
+
+                        // Тройной клик — переименование.
+                        if (rowTap.tapCount >= 3) {
+                            tree.renamingPath = rowItem.path
+                            return
+                        }
+                        // Двойной — раскрыть/свернуть папку.
+                        if (rowTap.tapCount === 2) {
+                            if (rowItem.hasChildren) {
+                                if (rowItem.expanded) tree.collapse(rowItem.row)
+                                else                  tree.expand(rowItem.row)
+                            }
+                            return
+                        }
+                        // Одиночный: шеврон — раскрыть; иначе выбрать/открыть.
                         const chevronEnd = 4 + rowItem.depth * 14 + 12
-                        if (rowItem.hasChildren && mouse.x < chevronEnd) {
+                        if (rowItem.hasChildren && point.position.x < chevronEnd) {
                             if (rowItem.expanded) tree.collapse(rowItem.row)
                             else                  tree.expand(rowItem.row)
                             return
                         }
-                        root.activeFolderPath = rowItem.isDir
-                            ? rowItem.path
-                            : Project.parentDir(rowItem.path)
-                    }
-                    onDoubleClicked: {
-                        if (rowItem.hasChildren) {
-                            if (rowItem.expanded) tree.collapse(rowItem.row)
-                            else                  tree.expand(rowItem.row)
+                        if (rowItem.isDir) {
+                            root.activeFolderPath = rowItem.path
+                        } else {
+                            root.activeFolderPath = Project.parentDir(rowItem.path)
+                            Docs.openFile(rowItem.path)
                         }
                     }
                 }

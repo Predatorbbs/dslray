@@ -6,11 +6,11 @@ import DSLRay
 // моноширинным шрифтом, нумерацией и подсветкой появится на шаге 4.
 PanelFrame {
     title: "КОД"
-    subtitle: "main.dsl"
+    subtitle: Docs.hasDocuments ? Docs.activeName : ""
 
     Text {
         anchors.centerIn: parent
-        text: "редактор кода"
+        text: Docs.hasDocuments ? Docs.activeName : "откройте файл"
         font.family: Theme.fontMono
         font.pixelSize: 13
         color: Theme.textGhost

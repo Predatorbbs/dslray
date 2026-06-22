@@ -1,0 +1,26 @@
+{
+  "elementName": "Главный экран",
+  "type": "screen",
+  "children": [
+    {
+      "elementName": "Шапка",
+      "type": "header",
+      "children": [
+        { "elementName": "Логотип", "type": "image" },
+        { "elementName": "Кнопка меню", "type": "button" }
+      ]
+    },
+    {
+      "type": "content",
+      "items": [
+        { "elementName": "Заголовок", "type": "text" },
+        { "elementName": "Поле ввода", "type": "input" },
+        { "elementName": "Кнопка отправки", "type": "button" }
+      ]
+    },
+    {
+      "elementName": "Подвал",
+      "type": "footer"
+    }
+  ]
+}
