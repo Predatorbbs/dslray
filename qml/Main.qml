@@ -77,6 +77,7 @@ ApplicationWindow {
                     StructurePanel {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
+                        onObjectActivated: function (offset) { codeEditor.gotoOffset(offset) }
                     }
                 }
 
@@ -106,6 +107,7 @@ ApplicationWindow {
                     }
 
                     CodeEditor {
+                        id: codeEditor
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                     }

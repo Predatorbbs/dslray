@@ -151,6 +151,47 @@ void DocumentController::handlePathRenamed(const QString &oldPath, const QString
         emit activeChanged();
 }
 
+void DocumentController::applyEdit(const QString &text)
+{
+    if (m_active < 0 || m_active >= m_docs.size())
+        return;
+    if (m_docs.at(m_active).content == text)
+        return;
+    m_docs[m_active].content = text;
+    writeToDisk(m_active);
+    emit activeChanged(); // «Структура» перечитается
+}
+
+void DocumentController::flushEdit(const QString &path, const QString &text)
+{
+    const int i = indexOfPath(normalize(path));
+    if (i < 0)
+        return;
+    if (m_docs.at(i).content == text)
+        return;
+    m_docs[i].content = text;
+    writeToDisk(i);
+    if (i == m_active)
+        emit activeChanged();
+}
+
+bool DocumentController::writeToDisk(int index)
+{
+    if (index < 0 || index >= m_docs.size())
+        return false;
+    QFile f(m_docs.at(index).path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        emit errorOccurred(tr("Не удалось записать файл '%1': %2")
+                               .arg(m_docs.at(index).name, f.errorString()));
+        return false;
+    }
+    QTextStream out(&f);
+    out.setEncoding(QStringConverter::Utf8);
+    out << m_docs.at(index).content;
+    f.close();
+    return true;
+}
+
 int DocumentController::indexOfPath(const QString &path) const
 {
     for (int i = 0; i < m_docs.size(); ++i) {

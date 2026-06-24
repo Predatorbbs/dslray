@@ -4,50 +4,43 @@ import DSLRay
 
 // Панель «СТРУКТУРА» — список объектов активного JSON-документа.
 // Для каждого объекта с полем "elementName" строится строка
-// «Объект – <значение elementName>». Список перечитывается автоматически
-// при переключении вкладки или открытии нового файла, т.к. привязан к
-// Docs.activeContent.
+// «Объект – <значение>». Клик по строке переводит каретку редактора к этому
+// объекту (сигнал objectActivated с символьным смещением). Список
+// перечитывается автоматически при смене вкладки или открытии файла.
 PanelFrame {
     id: root
     title: "СТРУКТУРА"
     subtitle: Docs.hasDocuments ? Docs.activeName : ""
 
+    // Сигнал перехода к объекту: offset — смещение в тексте документа.
+    signal objectActivated(int offset)
+
     // null  — содержимое не разобралось как JSON;
     // []    — JSON валиден, но объектов с elementName нет;
-    // [..]  — найденные имена объектов.
+    // [..]  — массив { name, index }.
     property var elements: computeElements(Docs.activeContent)
 
     readonly property bool noDoc:      !Docs.hasDocuments
     readonly property bool parseError: Docs.hasDocuments && elements === null
     readonly property bool empty:      !!elements && elements.length === 0
 
-    // Рекурсивно обходит JSON и собирает значения "elementName".
+    // Проверяет валидность JSON и собирает позиции всех "elementName".
     function computeElements(text) {
         if (!text || text.length === 0)
             return []
-        var rootNode
         try {
-            rootNode = JSON.parse(text)
+            JSON.parse(text)
         } catch (e) {
             return null
         }
         var out = []
-        function walk(node) {
-            if (node === null || typeof node !== "object")
-                return
-            if (Array.isArray(node)) {
-                for (var i = 0; i < node.length; ++i)
-                    walk(node[i])
-                return
-            }
-            if (node.hasOwnProperty("elementName"))
-                out.push(String(node.elementName))
-            for (var k in node) {
-                if (node.hasOwnProperty(k))
-                    walk(node[k])
-            }
+        var re = /"elementName"\s*:\s*"((?:[^"\\]|\\.)*)"/g
+        var m
+        while ((m = re.exec(text)) !== null) {
+            out.push({ name: m[1], index: m.index })
+            if (re.lastIndex === m.index) // защита от зацикливания на пустом совпадении
+                re.lastIndex++
         }
-        walk(rootNode)
         return out
     }
 
@@ -79,16 +72,15 @@ PanelFrame {
         delegate: Item {
             id: rowItem
             required property int index
-            required property string modelData
+            required property var modelData
 
             width: list.width
             implicitHeight: 27
 
             Rectangle {
                 anchors.fill: parent
-                color: rowHover.hovered ? Theme.bgSubtle : "transparent"
+                color: rowMouse.containsMouse ? Theme.bgSubtle : "transparent"
             }
-            HoverHandler { id: rowHover }
 
             Row {
                 anchors.fill: parent
@@ -96,14 +88,12 @@ PanelFrame {
                 anchors.rightMargin: 10
                 spacing: 7
 
-                // Маркер объекта.
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "◆"
                     font.pixelSize: 9
                     color: Theme.accent
                 }
-                // Тип.
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Объект"
@@ -118,17 +108,23 @@ PanelFrame {
                     font.pixelSize: Theme.fontContent
                     color: Theme.textGhost
                 }
-                // Имя объекта.
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     width: rowItem.width - 12 - 10 - x
-                    text: rowItem.modelData
+                    text: rowItem.modelData.name
                     font.family: Theme.fontSans
                     font.pixelSize: Theme.fontContent
                     font.weight: Font.Medium
                     color: Theme.textPrimary
                     elide: Text.ElideRight
                 }
+            }
+
+            MouseArea {
+                id: rowMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: root.objectActivated(rowItem.modelData.index)
             }
         }
     }

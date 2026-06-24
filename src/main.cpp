@@ -2,8 +2,10 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QtQml>
 
 #include "documentcontroller.h"
+#include "jsonhighlighter.h"
 #include "projectcontroller.h"
 
 int main(int argc, char *argv[])
@@ -18,6 +20,9 @@ int main(int argc, char *argv[])
 
     // Базовый стиль Controls — рисуем UI сами, лишний нативный стиль ни к чему.
     QQuickStyle::setStyle("Basic");
+
+    // JSON-подсветка для редактора кода.
+    qmlRegisterType<JsonHighlighter>("DSLRay", 1, 0, "JsonHighlighter");
 
     ProjectController project;
     DocumentController documents;

@@ -56,13 +56,22 @@ public:
     // имя у открытой вкладки, если она ссылается на старый путь.
     Q_INVOKABLE void handlePathRenamed(const QString &oldPath, const QString &newPath);
 
+    // «Прозрачный режим»: применить правку активного документа — обновить
+    // содержимое в памяти, записать файл на диск и уведомить (для «Структуры»).
+    Q_INVOKABLE void applyEdit(const QString &text);
+    // Сбросить правку конкретного документа по пути (например, при уходе с
+    // вкладки, когда активным стал уже другой документ).
+    Q_INVOKABLE void flushEdit(const QString &path, const QString &text);
+
 signals:
     void activeIndexChanged();
     void countChanged();
     void activeChanged();
+    void errorOccurred(const QString &message);
 
 private:
     int indexOfPath(const QString &path) const;
+    bool writeToDisk(int index);
     static QString normalize(const QString &path);
     static QString baseName(const QString &path);
     static QString readFile(const QString &path);

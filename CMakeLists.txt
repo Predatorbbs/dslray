@@ -29,6 +29,8 @@ qt_add_executable(appDSLRay
     src/projectcontroller.cpp
     src/documentcontroller.h
     src/documentcontroller.cpp
+    src/jsonhighlighter.h
+    src/jsonhighlighter.cpp
 )
 
 # Theme.qml — синглтон. Свойство нужно установить ДО qt_add_qml_module.

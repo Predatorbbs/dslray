@@ -280,7 +280,7 @@ PanelFrame {
                            ? Qt.alpha(Theme.accent, 0.10)
                            : (rowItem.renaming || tree.selectedPath === rowItem.path
                               ? Qt.alpha(Theme.accent, 0.06)
-                              : (rowHover.hovered ? Theme.bgSubtle : "transparent"))
+                              : (rowMouse.containsMouse ? Theme.bgSubtle : "transparent"))
                 }
 
                 // Линия-индикатор: drop сверху строки (в родителя этого файла).
@@ -372,54 +372,81 @@ PanelFrame {
                 Item {
                     id: dragGhost
                     width: 1; height: 1; visible: false
-                    Drag.active: rowDrag.active
+                    Drag.active: rowMouse.drag.active
                     Drag.source: rowItem
                     Drag.hotSpot.x: 0
                     Drag.hotSpot.y: 0
                 }
 
-                HoverHandler { id: rowHover }
-
-                DragHandler {
-                    id: rowDrag
+                // Взаимодействие: drag-and-drop + ручной подсчёт кликов
+                // (1 — выбрать, 2 — открыть, 3 — переименовать). Считаем по
+                // onReleased — это единственные «сырые» события, не съедаемые
+                // встроенной обработкой double-click у MouseArea. Одиночный клик
+                // срабатывает сразу; открытие/переименование — после паузы-арбитра,
+                // чтобы тройной клик не открывал вкладку «по пути».
+                MouseArea {
+                    id: rowMouse
+                    anchors.fill: parent
                     enabled: !rowItem.renaming
-                    target: dragGhost
-                    dragThreshold: 5
-                }
-
-                TapHandler {
-                    id: rowTap
-                    enabled: !rowItem.renaming
+                    hoverEnabled: true
                     acceptedButtons: Qt.LeftButton
-                    onTapped: function (point) {
+                    drag.target: dragGhost
+                    drag.threshold: 6
+
+                    property bool didDrag: false
+                    property int  clickCount: 0
+                    property real lastReleaseMs: 0
+
+                    Timer {
+                        id: resolveTimer
+                        interval: 300
+                        onTriggered: {
+                            if (rowMouse.clickCount >= 3) {
+                                tree.renamingPath = rowItem.path
+                            } else if (rowMouse.clickCount === 2) {
+                                if (rowItem.isDir) {
+                                    if (rowItem.expanded) tree.collapse(rowItem.row)
+                                    else                  tree.expand(rowItem.row)
+                                } else {
+                                    root.activeFolderPath = Project.parentDir(rowItem.path)
+                                    Docs.openFile(rowItem.path)
+                                }
+                            }
+                            rowMouse.clickCount = 0
+                        }
+                    }
+
+                    onPressed: {
+                        didDrag = false
+                        // Забираем фокус у возможного активного поля
+                        // переименования другого ряда — оно зафиксируется.
                         tree.forceActiveFocus()
+                    }
+                    onPositionChanged: if (drag.active) didDrag = true
+
+                    onReleased: function (mouse) {
+                        if (didDrag) { didDrag = false; clickCount = 0; resolveTimer.stop(); return }
+
+                        const now = Date.now()
+                        clickCount = (now - lastReleaseMs < 380) ? clickCount + 1 : 1
+                        lastReleaseMs = now
                         tree.selectedPath = rowItem.path
 
-                        // Тройной клик — переименование.
-                        if (rowTap.tapCount >= 3) {
-                            tree.renamingPath = rowItem.path
-                            return
-                        }
-                        // Двойной — раскрыть/свернуть папку.
-                        if (rowTap.tapCount === 2) {
-                            if (rowItem.hasChildren) {
+                        if (clickCount === 1) {
+                            // Мгновенный одиночный клик: шеврон — раскрыть; иначе выбрать.
+                            resolveTimer.stop()
+                            const chevronEnd = 4 + rowItem.depth * 14 + 12
+                            if (rowItem.hasChildren && mouse.x < chevronEnd) {
                                 if (rowItem.expanded) tree.collapse(rowItem.row)
                                 else                  tree.expand(rowItem.row)
+                            } else {
+                                root.activeFolderPath = rowItem.isDir
+                                    ? rowItem.path
+                                    : Project.parentDir(rowItem.path)
                             }
-                            return
-                        }
-                        // Одиночный: шеврон — раскрыть; иначе выбрать/открыть.
-                        const chevronEnd = 4 + rowItem.depth * 14 + 12
-                        if (rowItem.hasChildren && point.position.x < chevronEnd) {
-                            if (rowItem.expanded) tree.collapse(rowItem.row)
-                            else                  tree.expand(rowItem.row)
-                            return
-                        }
-                        if (rowItem.isDir) {
-                            root.activeFolderPath = rowItem.path
                         } else {
-                            root.activeFolderPath = Project.parentDir(rowItem.path)
-                            Docs.openFile(rowItem.path)
+                            // 2+ кликов — арбитр решит: открыть (2) или переименовать (3).
+                            resolveTimer.restart()
                         }
                     }
                 }
