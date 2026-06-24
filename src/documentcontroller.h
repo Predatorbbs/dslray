@@ -72,6 +72,7 @@ signals:
 private:
     int indexOfPath(const QString &path) const;
     bool writeToDisk(int index);
+    void persist() const; // сохраняет список открытых вкладок и активную в QSettings
     static QString normalize(const QString &path);
     static QString baseName(const QString &path);
     static QString readFile(const QString &path);

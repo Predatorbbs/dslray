@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSettings>
 
 
 // ── ProjectFileSystemModel ──────────────────────────────────────────────
@@ -66,6 +67,7 @@ void ProjectController::openProject(const QUrl &folderUrl)
     const QString clean = QDir::cleanPath(path);
     m_model->setRootPath(clean);
     m_rootPath = clean;
+    QSettings().setValue(QStringLiteral("session/projectPath"), clean);
     emit rootPathChanged();
 }
 

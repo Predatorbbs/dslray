@@ -3,6 +3,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSettings>
+#include <QStringList>
 #include <QTextStream>
 
 
@@ -70,6 +72,7 @@ void DocumentController::setActiveIndex(int index)
     m_active = index;
     emit activeIndexChanged();
     emit activeChanged();
+    persist();
 }
 
 void DocumentController::activate(int index)
@@ -109,6 +112,7 @@ void DocumentController::openFile(const QString &path)
     m_active = row;
     emit activeIndexChanged();
     emit activeChanged();
+    persist();
 }
 
 void DocumentController::closeAt(int index)
@@ -149,6 +153,7 @@ void DocumentController::handlePathRenamed(const QString &oldPath, const QString
     emit dataChanged(mi, mi, { PathRole, NameRole });
     if (idx == m_active)
         emit activeChanged();
+    persist();
 }
 
 void DocumentController::applyEdit(const QString &text)
@@ -190,6 +195,17 @@ bool DocumentController::writeToDisk(int index)
     out << m_docs.at(index).content;
     f.close();
     return true;
+}
+
+void DocumentController::persist() const
+{
+    QStringList paths;
+    paths.reserve(m_docs.size());
+    for (const OpenDocument &d : m_docs)
+        paths << d.path;
+    QSettings s;
+    s.setValue(QStringLiteral("session/openFiles"), paths);
+    s.setValue(QStringLiteral("session/activePath"), activePath());
 }
 
 int DocumentController::indexOfPath(const QString &path) const

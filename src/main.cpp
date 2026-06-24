@@ -1,12 +1,37 @@
+#include <QDir>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QSettings>
+#include <QStringList>
+#include <QUrl>
 #include <QtQml>
 
 #include "documentcontroller.h"
 #include "jsonhighlighter.h"
 #include "projectcontroller.h"
+
+// Восстанавливает прошлую сессию: открытый проект, набор вкладок и активную.
+// Вызывается после загрузки QML — состояние применяется через сигналы, как при
+// обычном открытии пользователем (без гонок с асинхронной загрузкой модели ФС).
+static void restoreSession(ProjectController &project, DocumentController &documents)
+{
+    QSettings settings;
+    const QString projectPath = settings.value(QStringLiteral("session/projectPath")).toString();
+    const QStringList openFiles = settings.value(QStringLiteral("session/openFiles")).toStringList();
+    const QString activePath = settings.value(QStringLiteral("session/activePath")).toString();
+
+    if (!projectPath.isEmpty() && QDir(projectPath).exists())
+        project.openProject(QUrl::fromLocalFile(projectPath));
+
+    for (const QString &file : openFiles)
+        documents.openFile(file);
+
+    // Повторное открытие уже открытого файла просто делает его активным.
+    if (!activePath.isEmpty())
+        documents.openFile(activePath);
+}
 
 int main(int argc, char *argv[])
 {
@@ -38,6 +63,11 @@ int main(int argc, char *argv[])
         Qt::QueuedConnection);
 
     engine.loadFromModule("DSLRay", "Main");
+    if (engine.rootObjects().isEmpty())
+        return -1;
+
+    // Восстанавливаем прошлую сессию уже поверх готового QML.
+    restoreSession(project, documents);
 
     return app.exec();
 }
