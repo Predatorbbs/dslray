@@ -76,6 +76,13 @@ PanelFrame {
     Connections {
         target: Docs
         function onActiveChanged() { root.reload() }
+        // Содержимое заменено программно (отброс черновика) — перечитать текст
+        // даже если путь не менялся.
+        function onActiveContentReset() {
+            root.suppressEdit = true
+            ta.text = Docs.activeContent
+            root.suppressEdit = false
+        }
     }
     Component.onCompleted: root.reload()
 

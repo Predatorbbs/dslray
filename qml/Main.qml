@@ -35,6 +35,13 @@ ApplicationWindow {
     // Открыто ли всплывающее меню приложения (попап поверх всего окна).
     property bool menuOpen: false
 
+    // Ctrl+S — сохранить активный документ (в «Безопасном режиме» пишет
+    // черновик в оригинал и удаляет его). Видимая кнопка появится позже.
+    Shortcut {
+        sequence: StandardKey.Save
+        onActivated: Docs.saveActive()
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0

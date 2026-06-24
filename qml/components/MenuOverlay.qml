@@ -15,12 +15,28 @@ Item {
     property bool open: false
     signal closeRequested()
 
+    // Открыт ли диалог подтверждения при выключении «Безопасного режима».
+    property bool confirmOpen: false
+
     anchors.fill: parent
     visible: opacity > 0
     opacity: open ? 1 : 0
     z: 1000
 
     Behavior on opacity { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
+
+    // Запрос на переключение режима. Включение — сразу; выключение при наличии
+    // несохранённых черновиков — через подтверждение.
+    function requestToggleSafe() {
+        if (Docs.safeMode) {
+            if (Docs.hasUnsavedChanges())
+                root.confirmOpen = true
+            else
+                Docs.setSafeMode(false)
+        } else {
+            Docs.setSafeMode(true)
+        }
+    }
 
     // Перехватываем все события, пока меню открыто (фон-блокер).
     MouseArea {
@@ -57,8 +73,8 @@ Item {
 
         property int selectedIndex: 0
         readonly property var sections: [
-            { title: "Проект",     hint: "Открытие, создание и настройки проекта" },
-            { title: "Редактор",   hint: "Поведение и вид редактора кода" },
+            { title: "Проект",      hint: "Открытие, создание и настройки проекта" },
+            { title: "Редактор кода", hint: "Режим записи изменений в файл" },
             { title: "Внешний вид", hint: "Тема и цветовая схема приложения" },
             { title: "О программе", hint: "Версия и сведения о DSLRay" }
         ]
@@ -157,7 +173,84 @@ Item {
                         color: Theme.textMuted
                     }
 
+                    // Раздел «Редактор кода» — переключатель режима записи.
+                    ColumnLayout {
+                        visible: popup.selectedIndex === 1
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: 12
+
+                        // Кастомный чекбокс «Безопасный режим».
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 44
+                            radius: Theme.rSmall
+                            color: chkHover.hovered ? "#f4f5f8" : Theme.bgSubtle
+                            border.color: Theme.border
+                            border.width: 1
+
+                            Row {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 10
+
+                                Rectangle {
+                                    width: 18; height: 18; radius: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: Docs.safeMode ? Theme.accent : Theme.bgPanel
+                                    border.color: Docs.safeMode ? Theme.accent : Theme.border
+                                    border.width: 1
+                                    Text {
+                                        anchors.centerIn: parent
+                                        visible: Docs.safeMode
+                                        text: "✓"
+                                        font.pixelSize: 12
+                                        color: Theme.accentFg
+                                    }
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "Безопасный режим"
+                                    font.family: Theme.fontSans
+                                    font.pixelSize: Theme.fontContent
+                                    font.weight: Font.Medium
+                                    color: Theme.textPrimary
+                                }
+                            }
+
+                            HoverHandler { id: chkHover }
+                            TapHandler { onTapped: root.requestToggleSafe() }
+                        }
+
+                        // Пояснение активного режима.
+                        Text {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            text: Docs.safeMode
+                                  ? "Все вносимые изменения будут применены к файлу только после сохранения."
+                                  : "Все вносимые изменения тут же будут перезаписывать файл на лету."
+                            font.family: Theme.fontSans
+                            font.pixelSize: Theme.fontContent
+                            color: Theme.textMuted
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            visible: Docs.safeMode
+                            text: "Сохранить активный файл — Ctrl+S."
+                            font.family: Theme.fontSans
+                            font.pixelSize: Theme.fontPanelHeader
+                            color: Theme.textFaint
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
+
+                    // Прочие разделы — заглушка.
                     Rectangle {
+                        visible: popup.selectedIndex !== 1
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: Theme.rSmall
@@ -196,7 +289,114 @@ Item {
         }
     }
 
-    // Esc закрывает меню.
-    Keys.onEscapePressed: root.closeRequested()
+    // ── Диалог подтверждения при выключении «Безопасного режима» ───────
+    Item {
+        anchors.fill: parent
+        visible: root.confirmOpen
+        z: 10
+
+        // Блокер кликов мимо диалога.
+        MouseArea { anchors.fill: parent }
+        Rectangle { anchors.fill: parent; color: "#000000"; opacity: 0.28 }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 420
+            implicitHeight: dlgCol.implicitHeight + 36
+            radius: Theme.rCard
+            color: Theme.bgPanel
+            border.color: Theme.border
+            border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: dlgCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 18
+                spacing: 12
+
+                Text {
+                    text: "Несохранённые изменения"
+                    font.family: Theme.fontSans
+                    font.pixelSize: 16
+                    font.weight: Font.DemiBold
+                    color: Theme.textPrimary
+                }
+                Text {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: "Есть черновики с несохранёнными правками. Применить их к файлам перед выключением «Безопасного режима»?"
+                    font.family: Theme.fontSans
+                    font.pixelSize: Theme.fontContent
+                    color: Theme.textMuted
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    spacing: 8
+
+                    DlgBtn {
+                        label: "Отмена"
+                        onClicked: root.confirmOpen = false
+                    }
+                    Item { Layout.fillWidth: true }
+                    DlgBtn {
+                        label: "Отбросить"
+                        danger: true
+                        onClicked: {
+                            Docs.discardAllDrafts()
+                            Docs.setSafeMode(false)
+                            root.confirmOpen = false
+                        }
+                    }
+                    DlgBtn {
+                        label: "Применить"
+                        accent: true
+                        onClicked: {
+                            Docs.applyAllDrafts()
+                            Docs.setSafeMode(false)
+                            root.confirmOpen = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    component DlgBtn: Rectangle {
+        id: db
+        property string label: ""
+        property bool accent: false
+        property bool danger: false
+        signal clicked()
+        implicitWidth: dbText.implicitWidth + 26
+        implicitHeight: 30
+        radius: Theme.rButton
+        color: db.accent ? (dbHover.hovered ? Qt.darker(Theme.accent, 1.06) : Theme.accent)
+                         : (dbHover.hovered ? "#f4f5f8" : Theme.bgPanel)
+        border.color: db.accent ? Theme.accent : (db.danger ? Theme.err : Theme.border)
+        border.width: 1
+        Text {
+            id: dbText
+            anchors.centerIn: parent
+            text: db.label
+            font.family: Theme.fontSans
+            font.pixelSize: Theme.fontToolbar
+            font.weight: Font.Medium
+            color: db.accent ? Theme.accentFg : (db.danger ? Theme.err : Theme.textPrimary)
+        }
+        HoverHandler { id: dbHover }
+        TapHandler { onTapped: db.clicked() }
+    }
+
+    // Esc закрывает меню (или сперва диалог подтверждения).
+    Keys.onEscapePressed: {
+        if (root.confirmOpen) root.confirmOpen = false
+        else                  root.closeRequested()
+    }
     focus: root.open
 }
