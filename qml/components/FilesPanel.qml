@@ -176,6 +176,29 @@ PanelFrame {
         function onRootPathChanged() { root.activeFolderPath = Project.rootPath }
     }
 
+    // Переключение/открытие вкладки — подсветить её файл в дереве, развернув
+    // схлопнутые папки до него. Реагируем на смену активной вкладки (а не на
+    // правки контента — те шлют только activeChanged).
+    Connections {
+        target: Docs
+        function onActiveIndexChanged() { root.revealActiveFile() }
+    }
+
+    function revealActiveFile() {
+        if (!Project.hasProject)
+            return
+        const p = Docs.activePath
+        if (!p)
+            return
+        const idx = Project.indexForPath(p)
+        if (idx.row < 0)
+            return // файл не в дереве проекта
+        tree.expandToIndex(idx)
+        tree.selectedPath = p
+        root.activeFolderPath = Project.parentDir(p)
+        Qt.callLater(function () { tree.positionViewAtIndex(idx, TableView.Contain) })
+    }
+
     // ── Пустое состояние ──────────────────────────────────────────────
     ColumnLayout {
         anchors.centerIn: parent

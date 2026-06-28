@@ -30,6 +30,10 @@ public:
 
     Q_INVOKABLE void openProject(const QUrl &folderUrl);
     Q_INVOKABLE QString parentDir(const QString &path) const;
+    Q_INVOKABLE QModelIndex indexForPath(const QString &path) const
+    {
+        return m_model->indexForPath(path);
+    }
 
     Q_INVOKABLE bool createFolder(const QString &parentPath, const QString &name);
     Q_INVOKABLE bool createFile(const QString &parentPath, const QString &name);

@@ -217,6 +217,40 @@ void ProjectTreeModel::rebasePaths(TreeNode *node, const QString &newPath)
         rebasePaths(c, newPath + QLatin1Char('/') + c->name);
 }
 
+QModelIndex ProjectTreeModel::indexForPath(const QString &path) const
+{
+    if (!m_root)
+        return {};
+    const QString target = QDir::cleanPath(path);
+    if (target.isEmpty() || target == m_root->path)
+        return {};
+    if (!target.startsWith(m_root->path + QLatin1Char('/')))
+        return {}; // вне проекта
+
+    TreeNode *cur = m_root;
+    QModelIndex curIdx; // невалидный == корень
+    while (true) {
+        if (!cur->populated)
+            populate(cur);
+        TreeNode *next = nullptr;
+        int nextRow = -1;
+        for (int i = 0; i < cur->children.size(); ++i) {
+            TreeNode *c = cur->children.at(i);
+            if (c->path == target)
+                return index(i, 0, curIdx);
+            if (c->isDir && target.startsWith(c->path + QLatin1Char('/'))) {
+                next = c;
+                nextRow = i;
+                break;
+            }
+        }
+        if (!next)
+            return {};
+        curIdx = index(nextRow, 0, curIdx);
+        cur = next;
+    }
+}
+
 // ── Операции ─────────────────────────────────────────────────────────────
 
 bool ProjectTreeModel::createFolder(const QString &parentPath, const QString &name)

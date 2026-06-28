@@ -46,6 +46,10 @@ public:
     bool hasChildren(const QModelIndex &parent = {}) const override;
     QHash<int, QByteArray> roleNames() const override;
 
+    // Индекс узла по пути (попутно заполняет ветки-предки). Невалидный, если
+    // путь вне проекта или не найден.
+    Q_INVOKABLE QModelIndex indexForPath(const QString &path) const;
+
     // ── Операции (меняют ФС и саму модель) ───────────────────────────
     bool createFolder(const QString &parentPath, const QString &name);
     bool createFile(const QString &parentPath, const QString &name);
