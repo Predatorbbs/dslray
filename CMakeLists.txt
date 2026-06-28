@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(DSLRay
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "DSLRay — desktop IDE for the DSL UI language"
     LANGUAGES CXX
 )
@@ -9,6 +9,9 @@ project(DSLRay
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+# AUTORCC — чтобы .qrc с иконками (resources/dslray_icons.qrc, с алиасами) компилировался
+# в ресурсы как есть, сохраняя путь :/icons/dslray_icon.png.
+set(CMAKE_AUTORCC ON)
 
 # Qt 6.7+ нужен ради topLeftRadius / topRightRadius на Rectangle.
 find_package(Qt6 6.7 REQUIRED COMPONENTS
@@ -17,6 +20,7 @@ find_package(Qt6 6.7 REQUIRED COMPONENTS
     Qml
     Quick
     QuickControls2
+    QuickDialogs2
 )
 
 qt_standard_project_setup(REQUIRES 6.7)
@@ -32,7 +36,14 @@ qt_add_executable(appDSLRay
     src/documentcontroller.cpp
     src/jsonhighlighter.h
     src/jsonhighlighter.cpp
+    # Иконки приложения (runtime-ресурс :/icons/...). Алиасы — внутри .qrc.
+    resources/dslray_icons.qrc
 )
+
+# Иконка исполняемого файла под Windows (taskbar / Проводник).
+if (WIN32)
+    target_sources(appDSLRay PRIVATE platform/windows/dslray.rc)
+endif()
 
 # Theme.qml — синглтон. Свойство нужно установить ДО qt_add_qml_module.
 set_source_files_properties(qml/theme/Theme.qml PROPERTIES
@@ -63,6 +74,7 @@ target_link_libraries(appDSLRay PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
+    Qt6::QuickDialogs2
 )
 
 # Под Windows прячем консольное окно у release-сборки.

@@ -1,0 +1,3 @@
+<!-- Add to your app bundle Info.plist or set via CMake/qmake -->
+<key>CFBundleIconFile</key>
+<string>dslray_icon.icns</string>

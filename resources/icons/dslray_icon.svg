@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DSLRay application icon">
+  <defs>
+    <radialGradient id="bg" cx="52%" cy="48%" r="72%">
+      <stop offset="0%" stop-color="#0b1b2a"/>
+      <stop offset="58%" stop-color="#060d18"/>
+      <stop offset="100%" stop-color="#02050a"/>
+    </radialGradient>
+
+    <linearGradient id="redRay" x1="160" y1="525" x2="900" y2="265" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="18%" stop-color="#ffef9a"/>
+      <stop offset="45%" stop-color="#ff3b20"/>
+      <stop offset="100%" stop-color="#ff1800"/>
+    </linearGradient>
+
+    <linearGradient id="greenRay" x1="160" y1="525" x2="810" y2="510" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="18%" stop-color="#eaff7b"/>
+      <stop offset="52%" stop-color="#59ff00"/>
+      <stop offset="100%" stop-color="#00e544"/>
+    </linearGradient>
+
+    <linearGradient id="blueRay" x1="160" y1="525" x2="880" y2="775" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="20%" stop-color="#a8f7ff"/>
+      <stop offset="55%" stop-color="#00c8ff"/>
+      <stop offset="100%" stop-color="#005bff"/>
+    </linearGradient>
+
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="1 0 0 0 0
+                0 1 0 0 0
+                0 0 1 0 0
+                0 0 0 0.88 0" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="leftFlare" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="15" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <clipPath id="roundedIconClip">
+      <rect x="12" y="12" width="1000" height="1000" rx="146" ry="146"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#roundedIconClip)">
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+    <ellipse cx="620" cy="600" rx="420" ry="310" fill="#07172a" opacity="0.28"/>
+
+    <!-- Outer glow layer -->
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)" opacity="0.98">
+      <path d="M148 530 L388 172 L900 410 L900 560 L388 872" stroke="url(#redRay)" stroke-width="78"/>
+      <path d="M148 530 L365 292 L800 460 L800 610 L365 760" stroke="url(#greenRay)" stroke-width="78"/>
+      <path d="M148 530 L435 360 L720 530 L435 705 L148 530" stroke="url(#blueRay)" stroke-width="78"/>
+    </g>
+
+    <!-- Crisp core layer -->
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.92">
+      <path d="M148 530 L388 172 L900 410 L900 560 L388 872" stroke="url(#redRay)" stroke-width="44"/>
+      <path d="M148 530 L365 292 L800 460 L800 610 L365 760" stroke="url(#greenRay)" stroke-width="44"/>
+      <path d="M148 530 L435 360 L720 530 L435 705 L148 530" stroke="url(#blueRay)" stroke-width="44"/>
+    </g>
+
+    <!-- Left convergence / input ray -->
+    <circle cx="148" cy="530" r="36" fill="#ffffff" filter="url(#leftFlare)" opacity="0.95"/>
+    <circle cx="148" cy="530" r="16" fill="#ffffff"/>
+    <path d="M60 530 L148 530" stroke="#ffffff" stroke-width="38" stroke-linecap="round" opacity="0.92" filter="url(#softGlow)"/>
+
+    <!-- Subtle icon border -->
+    <rect x="12" y="12" width="1000" height="1000" rx="146" ry="146" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="5"/>
+  </g>
+</svg>

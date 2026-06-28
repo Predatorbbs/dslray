@@ -25,6 +25,12 @@ QtObject {
     readonly property color accent:   "#4c6ef5"
     readonly property color accentFg: "#ffffff"
 
+    // ─── Редактор кода ───────────────────────────────────────────────
+    readonly property color editorGuide:    "#e4e7ee"  // вертикальные линии вложений
+    readonly property color editorCurLine:  "#f3f5fc"  // подсветка текущей строки
+    readonly property color editorBracket:  "#bcd0ff"  // подсветка парной скобки
+    readonly property color editorBracketFg: "#1d4ed8" // символ парной скобки
+
     // ─── Статусы ─────────────────────────────────────────────────────
     readonly property color ok:   "#3bb273"
     readonly property color warn: "#e9a23b"

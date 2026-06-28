@@ -1,0 +1,30 @@
+# 1) Add Qt resource file to your target sources.
+# Qt 6:
+qt_add_resources(DSLRay "dslray_icons"
+    PREFIX "/"
+    FILES
+        resources/icons/dslray_icon_256.png
+        resources/icons/dslray_icon_512.png
+        resources/icons/dslray_icon_1024.png
+        resources/icons/dslray_icon.svg
+)
+# Or simply add the prepared .qrc to target sources:
+# target_sources(DSLRay PRIVATE resources/dslray_icons.qrc)
+
+# 2) Windows executable icon:
+if (WIN32)
+    target_sources(DSLRay PRIVATE platform/windows/dslray.rc)
+endif()
+
+# 3) macOS bundle icon:
+if (APPLE)
+    set(MACOSX_BUNDLE_ICON_FILE dslray_icon.icns)
+    set_source_files_properties(resources/icons/dslray_icon.icns PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    target_sources(DSLRay PRIVATE resources/icons/dslray_icon.icns)
+    set_target_properties(DSLRay PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_ICON_FILE dslray_icon.icns
+    )
+endif()

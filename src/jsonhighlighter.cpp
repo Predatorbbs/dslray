@@ -1,6 +1,10 @@
 #include "jsonhighlighter.h"
 
+#include <QFontMetricsF>
 #include <QQuickTextDocument>
+#include <QTextBlock>
+#include <QTextBlockFormat>
+#include <QTextCursor>
 #include <QTextDocument>
 
 
@@ -16,6 +20,16 @@ JsonSyntaxHighlighter::JsonSyntaxHighlighter(QTextDocument *parent)
     m_keywordFmt.setForeground(QColor("#8b5cf6")); // true/false/null — фиолетовый
     m_keywordFmt.setFontWeight(QFont::DemiBold);
     m_punctFmt.setForeground(QColor("#7a818f"));   // пунктуация — приглушённый
+}
+
+void JsonSyntaxHighlighter::setColors(const QColor &key, const QColor &str, const QColor &num,
+                                      const QColor &keyword, const QColor &punct)
+{
+    m_keyFmt.setForeground(key);
+    m_strFmt.setForeground(str);
+    m_numFmt.setForeground(num);
+    m_keywordFmt.setForeground(keyword);
+    m_punctFmt.setForeground(punct);
 }
 
 void JsonSyntaxHighlighter::highlightBlock(const QString &text)
@@ -110,15 +124,145 @@ void JsonHighlighter::setDocument(QQuickTextDocument *doc)
 {
     if (m_document == doc)
         return;
+    if (m_document && m_document->textDocument())
+        disconnect(m_document->textDocument(), nullptr, this, nullptr);
     m_document = doc;
     attach();
     emit documentChanged();
+}
+
+void JsonHighlighter::setTabWidth(int width)
+{
+    const int clamped = width < 1 ? 1 : width;
+    if (m_tabWidth == clamped)
+        return;
+    m_tabWidth = clamped;
+    emit tabWidthChanged();
+    refreshIndent();
+}
+
+void JsonHighlighter::setKeyColor(const QColor &c)
+{
+    if (m_keyColor == c) return;
+    m_keyColor = c;
+    applyColors();
+    emit colorsChanged();
+}
+
+void JsonHighlighter::setStringColor(const QColor &c)
+{
+    if (m_stringColor == c) return;
+    m_stringColor = c;
+    applyColors();
+    emit colorsChanged();
+}
+
+void JsonHighlighter::setNumberColor(const QColor &c)
+{
+    if (m_numberColor == c) return;
+    m_numberColor = c;
+    applyColors();
+    emit colorsChanged();
+}
+
+void JsonHighlighter::setKeywordColor(const QColor &c)
+{
+    if (m_keywordColor == c) return;
+    m_keywordColor = c;
+    applyColors();
+    emit colorsChanged();
+}
+
+void JsonHighlighter::setPunctColor(const QColor &c)
+{
+    if (m_punctColor == c) return;
+    m_punctColor = c;
+    applyColors();
+    emit colorsChanged();
+}
+
+void JsonHighlighter::applyColors()
+{
+    if (!m_highlighter)
+        return;
+    m_highlighter->setColors(m_keyColor, m_stringColor, m_numberColor,
+                             m_keywordColor, m_punctColor);
+    m_highlighter->rehighlight();
 }
 
 void JsonHighlighter::attach()
 {
     delete m_highlighter;
     m_highlighter = nullptr;
+    if (m_document && m_document->textDocument()) {
+        QTextDocument *d = m_document->textDocument();
+        m_highlighter = new JsonSyntaxHighlighter(d);
+        applyColors();
+        // На правки документа — переустановить висячий отступ затронутых блоков.
+        connect(d, &QTextDocument::contentsChange, this,
+                [this](int position, int charsRemoved, int charsAdded) {
+                    Q_UNUSED(charsRemoved);
+                    if (m_applyingIndent)
+                        return;
+                    applyHangingIndent(position, position + charsAdded);
+                });
+        refreshIndent();
+    }
+}
+
+void JsonHighlighter::refreshIndent()
+{
     if (m_document && m_document->textDocument())
-        m_highlighter = new JsonSyntaxHighlighter(m_document->textDocument());
+        applyHangingIndent(0, m_document->textDocument()->characterCount());
+}
+
+// Переустановить висячий отступ для блоков, попадающих в диапазон [fromPos..toPos].
+void JsonHighlighter::applyHangingIndent(int fromPos, int toPos)
+{
+    if (m_applyingIndent)
+        return;
+    QTextDocument *d = m_document ? m_document->textDocument() : nullptr;
+    if (!d)
+        return;
+    const QFontMetricsF fm(d->defaultFont());
+    const qreal spaceWidth = fm.horizontalAdvance(QLatin1Char(' '));
+    if (spaceWidth <= 0.0)
+        return;
+
+    m_applyingIndent = true;
+    QTextBlock block = d->findBlock(qMax(0, fromPos));
+    const QTextBlock last = d->findBlock(qMax(fromPos, toPos));
+    while (block.isValid()) {
+        applyToBlock(block, spaceWidth);
+        if (block == last)
+            break;
+        block = block.next();
+    }
+    m_applyingIndent = false;
+}
+
+void JsonHighlighter::applyToBlock(const QTextBlock &block, qreal spaceWidth)
+{
+    const QString text = block.text();
+    int cols = 0;
+    for (int i = 0; i < text.size(); ++i) {
+        const QChar c = text.at(i);
+        if (c == QLatin1Char(' '))
+            ++cols;
+        else if (c == QLatin1Char('\t'))
+            cols += m_tabWidth;
+        else
+            break;
+    }
+    // Продолжение строки висит ровно на уровне собственного отступа строки.
+    const qreal margin = cols * spaceWidth;
+    QTextBlockFormat fmt = block.blockFormat();
+    // Уже выставлено — выходим (и заодно рвём возможную рекурсию).
+    // (Сравниваем вручную: qFuzzyCompare ненадёжен при нулевых значениях.)
+    if (qAbs(fmt.leftMargin() - margin) < 0.01 && qAbs(fmt.textIndent() + margin) < 0.01)
+        return;
+    fmt.setLeftMargin(margin);
+    fmt.setTextIndent(-margin);
+    QTextCursor cur(block);
+    cur.setBlockFormat(fmt);
 }

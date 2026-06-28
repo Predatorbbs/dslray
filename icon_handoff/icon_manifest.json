@@ -1,0 +1,28 @@
+{
+  "app": "DSLRay",
+  "purpose": "Application icon assets for a Qt desktop app",
+  "primary_icon": "resources/icons/dslray_icon_256.png",
+  "source_png": "resources/icons/dslray_icon_source_generated.png",
+  "editable_vector_source": "resources/icons/dslray_icon.svg",
+  "windows_icon": "resources/icons/dslray_icon.ico",
+  "macos_icon": "resources/icons/dslray_icon.icns",
+  "qt_resource_file": "resources/dslray_icons.qrc",
+  "runtime_icon_path": ":/icons/dslray_icon.png",
+  "recommended_png_sizes": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    128,
+    256,
+    512,
+    1024
+  ],
+  "notes": [
+    "PNG files have transparent rounded corners.",
+    "Opaque fallback PNGs are included for cases where transparency is undesirable.",
+    "Use the prepared qrc for Qt resource embedding.",
+    "Use .ico for Windows executable icon and .icns/iconset for macOS bundle icon."
+  ]
+}

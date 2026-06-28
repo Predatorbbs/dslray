@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import DSLRay
 
@@ -75,7 +77,7 @@ Item {
         readonly property var sections: [
             { title: "Проект",      hint: "Открытие, создание и настройки проекта" },
             { title: "Редактор кода", hint: "Режим записи изменений в файл" },
-            { title: "Внешний вид", hint: "Тема и цветовая схема приложения" },
+            { title: "Внешний вид", hint: "Цветовая схема подсветки кода" },
             { title: "О программе", hint: "Версия и сведения о DSLRay" }
         ]
 
@@ -157,7 +159,10 @@ Item {
                     anchors.margins: 22
                     spacing: 10
 
+                    // «О программе» рисует собственную шапку (иконка + название),
+                    // поэтому стандартный заголовок раздела для неё скрыт.
                     Text {
+                        visible: popup.selectedIndex !== 3
                         text: popup.sections[popup.selectedIndex].title
                         font.family: Theme.fontSans
                         font.pixelSize: 20
@@ -165,6 +170,7 @@ Item {
                         color: Theme.textPrimary
                     }
                     Text {
+                        visible: popup.selectedIndex !== 3
                         text: popup.sections[popup.selectedIndex].hint
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
@@ -238,12 +244,365 @@ Item {
                             StepperBtn { glyph: "+"; onClicked: Docs.codeFontSize = Docs.codeFontSize + 1 }
                         }
 
+                        // Тип отступа: табы / пробелы.
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Тип отступа"
+                                font.family: Theme.fontSans
+                                font.pixelSize: Theme.fontContent
+                                font.weight: Font.Medium
+                                color: Theme.textPrimary
+                            }
+                            SegBtn {
+                                label: "Пробелы"
+                                active: !Docs.indentUseTabs
+                                onClicked: Docs.indentUseTabs = false
+                            }
+                            SegBtn {
+                                label: "Табы"
+                                active: Docs.indentUseTabs
+                                onClicked: Docs.indentUseTabs = true
+                            }
+                        }
+
+                        // Ширина отступа (1…8).
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Ширина отступа"
+                                font.family: Theme.fontSans
+                                font.pixelSize: Theme.fontContent
+                                font.weight: Font.Medium
+                                color: Theme.textPrimary
+                            }
+                            StepperBtn { glyph: "−"; onClicked: Docs.indentWidth = Docs.indentWidth - 1 }
+                            Text {
+                                Layout.preferredWidth: 34
+                                horizontalAlignment: Text.AlignHCenter
+                                text: Docs.indentWidth
+                                font.family: Theme.fontSans
+                                font.pixelSize: Theme.fontContent
+                                font.weight: Font.DemiBold
+                                color: Theme.textPrimary
+                            }
+                            StepperBtn { glyph: "+"; onClicked: Docs.indentWidth = Docs.indentWidth + 1 }
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
+
+                    // ── Раздел «О программе» ──────────────────────────────
+                    ColumnLayout {
+                        id: about
+                        visible: popup.selectedIndex === 3
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: 16
+
+                        // История версий. Свежие — сверху.
+                        readonly property var changelog: [
+                            {
+                                ver: "0.2",
+                                tag: "DeepAlpha",
+                                date: "июнь 2026",
+                                items: [
+                                    "Подсветка текущей строки — на всю логическую строку, включая перенос.",
+                                    "Парные скобки: подсветка пары и акцентная вертикаль между ними от начала текста строки.",
+                                    "Базовая проверка синтаксиса: подсветка несбалансированных скобок и незакрытых строк.",
+                                    "Вертикальные направляющие вложений.",
+                                    "Авто-отступ по структуре при Enter; тип отступа (табы/пробелы) и его ширина в настройках.",
+                                    "Кнопка «Форматировать отступы» — выравнивание всего документа по глубине вложенности.",
+                                    "Висячий отступ переноса: продолжение строки держит уровень вложенности (файл не меняется).",
+                                    "Настраиваемые цвета подсветки (ключ/строка/число/литералы/пунктуация) — блок «Внешний вид кода».",
+                                    "Ускоренная прокрутка колесом и слежение вьюпорта за кареткой.",
+                                    "Защита редактора от слишком больших файлов."
+                                ]
+                            },
+                            {
+                                ver: "0.1",
+                                tag: "DeepAlpha",
+                                date: "июнь 2026",
+                                items: [
+                                    "Дерево проекта на собственной модели: drag-and-drop, переименование, удаление с подтверждением.",
+                                    "Редактор кода: подсветка JSON, нумерация строк, перенос по словам, регулировка размера шрифта.",
+                                    "Панель «Структура»: навигация по объектам elementName с подсветкой пройденного.",
+                                    "Режимы записи «Прозрачный» и «Безопасный» (черновики + сохранение по Ctrl+S).",
+                                    "Восстановление сессии: открытый проект и вкладки между запусками.",
+                                    "Иконка приложения и экран «О программе»."
+                                ]
+                            },
+                            {
+                                ver: "0.0",
+                                tag: "каркас",
+                                date: "ранние сборки",
+                                items: [
+                                    "Скелет приложения на Qt 6 / QML, раскладка из панелей на SplitView.",
+                                    "Контроллеры проекта и документов, связь C++ ↔ QML через контекстные свойства."
+                                ]
+                            }
+                        ]
+
+                        // Шапка: иконка + название + версия.
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 16
+
+                            Image {
+                                source: "qrc:/icons/dslray_icon.png"
+                                sourceSize.width: 200
+                                sourceSize.height: 200
+                                Layout.preferredWidth: 72
+                                Layout.preferredHeight: 72
+                                fillMode: Image.PreserveAspectFit
+                                smooth: true
+                                mipmap: true
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+
+                                Text {
+                                    text: "DSLRay"
+                                    font.family: Theme.fontSans
+                                    font.pixelSize: 26
+                                    font.weight: Font.Bold
+                                    color: Theme.textPrimary
+                                }
+                                RowLayout {
+                                    spacing: 8
+                                    // Пилюля с номером версии.
+                                    Rectangle {
+                                        implicitWidth: verText.implicitWidth + 18
+                                        implicitHeight: 22
+                                        radius: 11
+                                        color: Qt.alpha(Theme.accent, 0.12)
+                                        Text {
+                                            id: verText
+                                            anchors.centerIn: parent
+                                            text: "Версия 0.2"
+                                            font.family: Theme.fontSans
+                                            font.pixelSize: Theme.fontPanelHeader
+                                            font.weight: Font.DemiBold
+                                            color: Theme.accent
+                                        }
+                                    }
+                                    Text {
+                                        text: "DeepAlpha"
+                                        font.family: Theme.fontSans
+                                        font.pixelSize: Theme.fontContent
+                                        font.weight: Font.Medium
+                                        color: Theme.textMuted
+                                    }
+                                }
+                            }
+                        }
+
+                        // Описание.
+                        Text {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            text: "IDE для помощи в написании json-based DSL для работы с AI."
+                            font.family: Theme.fontSans
+                            font.pixelSize: 14
+                            lineHeight: 1.25
+                            color: Theme.textPrimary
+                        }
+
+                        // Подпись к списку изменений.
+                        Text {
+                            Layout.topMargin: 2
+                            text: "ИЗМЕНЕНИЯ"
+                            font.family: Theme.fontSans
+                            font.pixelSize: Theme.fontPanelHeader
+                            font.weight: Font.Bold
+                            font.letterSpacing: Theme.letterSpacingHeader
+                            color: Theme.textFaint
+                        }
+
+                        // ── Скроллируемый список Changelog ────────────────
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            radius: Theme.rSmall
+                            color: Theme.bgSubtle
+                            border.color: Theme.borderSoft
+                            border.width: 1
+                            clip: true
+
+                            ListView {
+                                id: clList
+                                anchors.fill: parent
+                                anchors.margins: 4
+                                clip: true
+                                spacing: 4
+                                boundsBehavior: Flickable.StopAtBounds
+                                model: about.changelog
+
+                                ScrollBar.vertical: ScrollBar {
+                                    policy: clList.contentHeight > clList.height
+                                            ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                }
+
+                                delegate: Item {
+                                    required property var modelData
+                                    required property int index
+                                    width: clList.width
+                                    implicitHeight: entryCol.implicitHeight + 24
+
+                                    ColumnLayout {
+                                        id: entryCol
+                                        x: 12
+                                        y: 12
+                                        width: parent.width - 24
+                                        spacing: 8
+
+                                        // Заголовок записи: версия + кодовое имя + дата.
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 8
+                                            Text {
+                                                text: modelData.ver
+                                                font.family: Theme.fontMono
+                                                font.pixelSize: Theme.fontContent
+                                                font.weight: Font.Bold
+                                                color: Theme.textPrimary
+                                            }
+                                            Text {
+                                                text: modelData.tag
+                                                font.family: Theme.fontSans
+                                                font.pixelSize: Theme.fontPanelHeader
+                                                font.weight: Font.DemiBold
+                                                color: Theme.accent
+                                            }
+                                            Item { Layout.fillWidth: true }
+                                            Text {
+                                                text: modelData.date
+                                                font.family: Theme.fontSans
+                                                font.pixelSize: Theme.fontPanelHeader
+                                                color: Theme.textFaint
+                                            }
+                                        }
+
+                                        // Пункты изменений.
+                                        Repeater {
+                                            model: modelData.items
+                                            delegate: RowLayout {
+                                                required property string modelData
+                                                Layout.fillWidth: true
+                                                spacing: 8
+                                                Rectangle {
+                                                    Layout.topMargin: 6
+                                                    Layout.alignment: Qt.AlignTop
+                                                    width: 4; height: 4; radius: 2
+                                                    color: Theme.textGhost
+                                                }
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    wrapMode: Text.WordWrap
+                                                    text: modelData
+                                                    font.family: Theme.fontSans
+                                                    font.pixelSize: Theme.fontContent
+                                                    lineHeight: 1.2
+                                                    color: Theme.textMuted
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Разделитель между записями (кроме последней).
+                                    Rectangle {
+                                        anchors.bottom: parent.bottom
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.leftMargin: 12
+                                        anchors.rightMargin: 12
+                                        height: 1
+                                        color: Theme.divider
+                                        visible: index < clList.count - 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Раздел «Внешний вид» — цвета подсветки кода ───────
+                    ColumnLayout {
+                        visible: popup.selectedIndex === 2
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: 12
+
+                        // Карточка «Внешний вид кода».
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.rSmall
+                            color: Theme.bgSubtle
+                            border.color: Theme.borderSoft
+                            border.width: 1
+                            implicitHeight: appCol.implicitHeight + 24
+
+                            ColumnLayout {
+                                id: appCol
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 12
+                                spacing: 10
+
+                                Text {
+                                    text: "Внешний вид кода"
+                                    font.family: Theme.fontSans
+                                    font.pixelSize: Theme.fontContent
+                                    font.weight: Font.DemiBold
+                                    color: Theme.textPrimary
+                                }
+
+                                ColorRow {
+                                    label: "Ключ"; sample: "\"ключ\""
+                                    current: Docs.colorKey
+                                    onPicked: function (c) { Docs.colorKey = c }
+                                }
+                                ColorRow {
+                                    label: "Строка (значение)"; sample: "\"текст\""
+                                    current: Docs.colorString
+                                    onPicked: function (c) { Docs.colorString = c }
+                                }
+                                ColorRow {
+                                    label: "Число"; sample: "42"
+                                    current: Docs.colorNumber
+                                    onPicked: function (c) { Docs.colorNumber = c }
+                                }
+                                ColorRow {
+                                    label: "true / false / null"; sample: "true"
+                                    current: Docs.colorKeyword
+                                    onPicked: function (c) { Docs.colorKeyword = c }
+                                }
+                                ColorRow {
+                                    label: "Пунктуация"; sample: "{ } [ ] : ,"
+                                    current: Docs.colorPunct
+                                    onPicked: function (c) { Docs.colorPunct = c }
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Item { Layout.fillWidth: true }
+                            DlgBtn { label: "Сбросить цвета"; onClicked: Docs.resetColors() }
+                        }
+
                         Item { Layout.fillHeight: true }
                     }
 
                     // Прочие разделы — заглушка.
                     Rectangle {
-                        visible: popup.selectedIndex !== 1
+                        visible: popup.selectedIndex !== 1 && popup.selectedIndex !== 2 && popup.selectedIndex !== 3
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: Theme.rSmall
@@ -402,6 +761,78 @@ Item {
         }
         HoverHandler { id: crHover }
         TapHandler { onTapped: cr.toggled() }
+    }
+
+    component ColorRow: RowLayout {
+        id: crow
+        property string label: ""
+        property color current: "black"
+        property string sample: ""
+        signal picked(color c)
+        Layout.fillWidth: true
+        spacing: 10
+
+        Text {
+            text: crow.label
+            Layout.fillWidth: true
+            font.family: Theme.fontSans
+            font.pixelSize: Theme.fontContent
+            color: Theme.textPrimary
+        }
+        // Образец текущим цветом.
+        Text {
+            visible: crow.sample.length > 0
+            text: crow.sample
+            font.family: Theme.fontMono
+            font.pixelSize: Theme.fontContent
+            font.weight: Font.DemiBold
+            color: crow.current
+        }
+        // Свотч — клик открывает палитру.
+        Rectangle {
+            implicitWidth: 44
+            implicitHeight: 24
+            radius: Theme.rSmall
+            color: crow.current
+            border.color: Theme.border
+            border.width: 1
+            HoverHandler { cursorShape: Qt.PointingHandCursor }
+            TapHandler {
+                onTapped: {
+                    colorDlg.selectedColor = crow.current
+                    colorDlg.open()
+                }
+            }
+        }
+        ColorDialog {
+            id: colorDlg
+            onAccepted: crow.picked(colorDlg.selectedColor)
+        }
+    }
+
+    component SegBtn: Rectangle {
+        id: seg
+        property string label: ""
+        property bool active: false
+        signal clicked()
+        implicitWidth: segText.implicitWidth + 22
+        implicitHeight: 26
+        radius: Theme.rSmall
+        color: seg.active ? Qt.alpha(Theme.accent, 0.12)
+                          : (segHover.hovered ? "#f0f1f4" : Theme.bgPanel)
+        border.color: seg.active ? Theme.accent : Theme.border
+        border.width: 1
+        Text {
+            id: segText
+            anchors.centerIn: parent
+            text: seg.label
+            font.family: Theme.fontSans
+            font.pixelSize: Theme.fontToolbar
+            font.weight: seg.active ? Font.DemiBold : Font.Normal
+            color: seg.active ? Theme.accent : Theme.textMuted
+        }
+        HoverHandler { id: segHover }
+        TapHandler { onTapped: seg.clicked() }
     }
 
     component StepperBtn: Rectangle {
