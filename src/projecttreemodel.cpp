@@ -371,6 +371,32 @@ QString ProjectTreeModel::renameItem(const QString &path, const QString &newName
     return newPath;
 }
 
+bool ProjectTreeModel::removeItem(const QString &path)
+{
+    QFileInfo info(QDir::cleanPath(path));
+    if (!info.exists())
+        return false;
+
+    const bool ok = info.isDir()
+        ? QDir(info.absoluteFilePath()).removeRecursively()
+        : QFile::remove(info.absoluteFilePath());
+    if (!ok) {
+        emit errorOccurred(tr("Не удалось удалить '%1'").arg(info.fileName()));
+        return false;
+    }
+
+    TreeNode *node = findNode(QDir::cleanPath(path));
+    if (node && node->parent) {
+        TreeNode *p = node->parent;
+        const int pos = rowOf(node);
+        beginRemoveRows(indexForNode(p), pos, pos);
+        p->children.removeAt(pos);
+        endRemoveRows();
+        delete node;
+    }
+    return true;
+}
+
 QString ProjectTreeModel::moveItem(const QString &sourcePath, const QString &targetDir)
 {
     if (sourcePath.isEmpty() || targetDir.isEmpty())

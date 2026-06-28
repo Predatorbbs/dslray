@@ -138,6 +138,7 @@ PanelFrame {
                     color: Theme.textGhost
                 }
                 Text {
+                    id: nameLabel
                     anchors.verticalCenter: parent.verticalCenter
                     width: rowItem.width - 12 - 10 - x
                     text: rowItem.modelData.name
@@ -146,6 +147,11 @@ PanelFrame {
                     font.weight: rowItem.current ? Font.DemiBold : Font.Medium
                     color: rowItem.passed ? Theme.accent : Theme.textPrimary
                     elide: Text.ElideRight
+
+                    // Полное имя во всплывающей подсказке, если не помещается.
+                    ToolTip.visible: rowMouse.containsMouse && nameLabel.truncated
+                    ToolTip.text: rowItem.modelData.name
+                    ToolTip.delay: 500
                 }
             }
 

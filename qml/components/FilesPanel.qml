@@ -18,6 +18,9 @@ PanelFrame {
     property string activeFolderPath: Project.rootPath
     property string pendingCreateMode: "" // "" | "file" | "folder"
 
+    // Запрос на удаление (обрабатывает окно: показывает диалог-подтверждение).
+    signal deleteRequested(string path, bool isDir, string name)
+
     function rootName() {
         const p = Project.rootPath
         const sep = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"))
@@ -566,7 +569,7 @@ PanelFrame {
                     anchors.fill: parent
                     enabled: !node.renaming
                     hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
                     // Не отдаём захват дереву-Flickable: зажатие на строке —
                     // это перетаскивание файла, а не прокрутка списка.
                     preventStealing: true
@@ -578,13 +581,17 @@ PanelFrame {
                     property real lastReleaseMs: 0
 
                     onPressed: function (mouse) {
-                        pressX = mouse.x; pressY = mouse.y
-                        dragActive = false
                         tree.selectedPath = node.path
                         tree.forceActiveFocus()
+                        if (mouse.button === Qt.RightButton) {
+                            contextMenu.popup()
+                            return
+                        }
+                        pressX = mouse.x; pressY = mouse.y
+                        dragActive = false
                     }
                     onPositionChanged: function (mouse) {
-                        if (pressed && !dragActive) {
+                        if (pressed && (pressedButtons & Qt.LeftButton) && !dragActive) {
                             const dx = mouse.x - pressX, dy = mouse.y - pressY
                             if (dx * dx + dy * dy >= 36)   // порог 6px
                                 dragActive = true
@@ -592,6 +599,8 @@ PanelFrame {
                     }
 
                     onReleased: function (mouse) {
+                        if (mouse.button !== Qt.LeftButton)
+                            return
                         if (dragActive) {
                             // Явная доставка drop в DropArea под курсором —
                             // снятие Drag.active само по себе drop НЕ генерирует.
@@ -624,6 +633,35 @@ PanelFrame {
                             else if (clickCount === 2)
                                 openTimer.restart()   // откроет, если не придёт 3-й клик
                         }
+                    }
+                }
+
+                // Контекстное меню (ПКМ).
+                Menu {
+                    id: contextMenu
+                    padding: 4
+                    background: Rectangle {
+                        implicitWidth: 170
+                        color: Theme.bgPanel
+                        border.color: Theme.border
+                        border.width: 1
+                        radius: Theme.rSmall
+                    }
+                    MenuItem {
+                        implicitHeight: 30
+                        contentItem: Text {
+                            text: "Удалить"
+                            font.family: Theme.fontSans
+                            font.pixelSize: Theme.fontContent
+                            color: Theme.err
+                            verticalAlignment: Text.AlignVCenter
+                            leftPadding: 8
+                        }
+                        background: Rectangle {
+                            radius: Theme.rSmall
+                            color: parent.hovered ? Qt.alpha(Theme.err, 0.08) : "transparent"
+                        }
+                        onTriggered: root.deleteRequested(node.path, node.isDir, node.nameText)
                     }
                 }
 

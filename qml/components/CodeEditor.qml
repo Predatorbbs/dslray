@@ -26,10 +26,19 @@ PanelFrame {
     // считался пройденным. Пересчитывается при прокрутке и смене текста.
     readonly property int topOffset: (ta.length, ta.positionAt(ta.leftPadding + 2, flick.contentY + root.lineHeight + 2))
 
+    // Смещения начал логических строк (для нумерации, корректной при переносе).
+    property var lineStarts: computeLineStarts(ta.text)
+    function computeLineStarts(t) {
+        var arr = [0]
+        for (var i = 0; i < t.length; ++i)
+            if (t.charCodeAt(i) === 10) arr.push(i + 1)
+        return arr
+    }
+
     FontMetrics {
         id: fm
         font.family: Theme.fontMono
-        font.pixelSize: 13
+        font.pixelSize: Docs.codeFontSize
     }
 
     function reload() {
@@ -132,20 +141,21 @@ PanelFrame {
 
             Item {
                 width: parent.width
-                y: ta.topPadding - flick.contentY
+                y: -flick.contentY
 
                 Repeater {
-                    model: Math.max(1, ta.lineCount)
+                    model: root.lineStarts ? root.lineStarts.length : 1
                     delegate: Text {
                         required property int index
-                        y: index * root.lineHeight
+                        // Позиция логической строки (учитывает перенос).
+                        y: ta.positionToRectangle(root.lineStarts[index]).y
                         width: gutter.width - 8
                         height: root.lineHeight
                         horizontalAlignment: Text.AlignRight
                         verticalAlignment: Text.AlignVCenter
                         text: index + 1
                         font.family: Theme.fontMono
-                        font.pixelSize: 13
+                        font.pixelSize: Docs.codeFontSize
                         color: index === editor.caretLine ? Theme.accent : Theme.textGhost
                     }
                 }
@@ -168,13 +178,13 @@ PanelFrame {
 
             TextArea {
                 id: ta
-                width: Math.max(implicitWidth, flick.width)
+                width: Docs.wordWrap ? flick.width : Math.max(implicitWidth, flick.width)
                 height: Math.max(implicitHeight, flick.height)
-                wrapMode: TextArea.NoWrap
+                wrapMode: Docs.wordWrap ? TextArea.Wrap : TextArea.NoWrap
                 selectByMouse: true
                 persistentSelection: true
                 font.family: Theme.fontMono
-                font.pixelSize: 13
+                font.pixelSize: Docs.codeFontSize
                 color: Theme.textPrimary
                 // Мягкое серо-голубое выделение, текст остаётся тёмным.
                 selectionColor: "#d7dbe6"

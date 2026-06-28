@@ -17,6 +17,8 @@ class ProjectController : public QObject
     Q_PROPERTY(QString rootPath READ rootPath NOTIFY rootPathChanged)
     Q_PROPERTY(bool hasProject READ hasProject NOTIFY rootPathChanged)
     Q_PROPERTY(QModelIndex projectRootIndex READ projectRootIndex NOTIFY rootPathChanged)
+    // Спрашивать подтверждение перед удалением. Хранится в QSettings.
+    Q_PROPERTY(bool confirmDelete READ confirmDelete WRITE setConfirmDelete NOTIFY confirmDeleteChanged)
 
 public:
     explicit ProjectController(QObject *parent = nullptr);
@@ -45,11 +47,19 @@ public:
     // "/") при успехе или пустую строку при ошибке/без изменений.
     Q_INVOKABLE QString renameItem(const QString &path, const QString &newName);
 
+    // Удаляет файл/папку (папку — со всем содержимым).
+    Q_INVOKABLE bool deleteItem(const QString &path);
+
+    bool confirmDelete() const { return m_confirmDelete; }
+    void setConfirmDelete(bool on);
+
 signals:
     void rootPathChanged();
     void errorOccurred(const QString &message);
+    void confirmDeleteChanged();
 
 private:
     ProjectTreeModel *m_model;
     QString m_rootPath;
+    bool m_confirmDelete = true;
 };

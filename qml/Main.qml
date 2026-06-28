@@ -35,6 +35,29 @@ ApplicationWindow {
     // Открыто ли всплывающее меню приложения (попап поверх всего окна).
     property bool menuOpen: false
 
+    // Состояние диалога подтверждения удаления.
+    property bool   deleteDialogOpen: false
+    property string pendingDeletePath: ""
+    property bool   pendingDeleteIsDir: false
+    property string pendingDeleteName: ""
+    property bool   dontAskAgain: false
+
+    function requestDelete(path, isDir, name) {
+        if (!Project.confirmDelete) {
+            window.performDelete(path)
+            return
+        }
+        pendingDeletePath = path
+        pendingDeleteIsDir = isDir
+        pendingDeleteName = name
+        dontAskAgain = false
+        deleteDialogOpen = true
+    }
+    function performDelete(path) {
+        if (Project.deleteItem(path))
+            Docs.closePath(path)   // закрыть вкладку удалённого файла, если открыта
+    }
+
     // Ctrl+S — сохранить активный документ (в «Безопасном режиме» пишет
     // черновик в оригинал и удаляет его). Видимая кнопка появится позже.
     Shortcut {
@@ -96,6 +119,9 @@ ApplicationWindow {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         height: Math.round((parent.height - Theme.gap) * Theme.filesProjectRatio)
+                        onDeleteRequested: function (path, isDir, name) {
+                            window.requestDelete(path, isDir, name)
+                        }
                     }
                     StructurePanel {
                         anchors.top: filesPanel.bottom
@@ -165,5 +191,136 @@ ApplicationWindow {
     MenuOverlay {
         open: window.menuOpen
         onCloseRequested: window.menuOpen = false
+    }
+
+    // ── Диалог подтверждения удаления ─────────────────────────────────
+    Item {
+        id: deleteOverlay
+        anchors.fill: parent
+        visible: opacity > 0
+        opacity: window.deleteDialogOpen ? 1 : 0
+        z: 2000
+        Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+
+        MouseArea { anchors.fill: parent; enabled: window.deleteDialogOpen }
+        Rectangle { anchors.fill: parent; color: "#000000"; opacity: 0.42 }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 440
+            implicitHeight: dlgCol.implicitHeight + 40
+            radius: Theme.rCard
+            color: Theme.bgPanel
+            border.color: Theme.border
+            border.width: 1
+            scale: window.deleteDialogOpen ? 1 : 0.97
+            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: dlgCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 20
+                spacing: 14
+
+                Text {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: window.pendingDeleteIsDir
+                          ? "Вы точно хотите удалить папку со всем содержимым?"
+                          : "Вы точно хотите удалить файл?"
+                    font.family: Theme.fontSans
+                    font.pixelSize: 16
+                    font.weight: Font.DemiBold
+                    color: Theme.textPrimary
+                }
+                Text {
+                    Layout.fillWidth: true
+                    elide: Text.ElideMiddle
+                    text: window.pendingDeleteName
+                    font.family: Theme.fontSans
+                    font.pixelSize: Theme.fontContent
+                    color: Theme.textMuted
+                }
+
+                // «Больше не спрашивать».
+                Row {
+                    Layout.topMargin: 2
+                    spacing: 8
+                    Rectangle {
+                        width: 17; height: 17; radius: 4
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: window.dontAskAgain ? Theme.accent : Theme.bgPanel
+                        border.color: window.dontAskAgain ? Theme.accent : Theme.border
+                        border.width: 1
+                        Text {
+                            anchors.centerIn: parent
+                            visible: window.dontAskAgain
+                            text: "✓"; font.pixelSize: 11; color: Theme.accentFg
+                        }
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Больше не спрашивать"
+                        font.family: Theme.fontSans
+                        font.pixelSize: Theme.fontContent
+                        color: Theme.textMuted
+                    }
+                    TapHandler { onTapped: window.dontAskAgain = !window.dontAskAgain }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    spacing: 8
+                    Item { Layout.fillWidth: true }
+                    DeleteBtn {
+                        label: "Нет"
+                        onClicked: window.deleteDialogOpen = false
+                    }
+                    DeleteBtn {
+                        label: "Да"
+                        danger: true
+                        onClicked: {
+                            if (window.dontAskAgain)
+                                Project.confirmDelete = false
+                            window.performDelete(window.pendingDeletePath)
+                            window.deleteDialogOpen = false
+                        }
+                    }
+                }
+            }
+        }
+
+        Keys.onEscapePressed: window.deleteDialogOpen = false
+        focus: window.deleteDialogOpen
+    }
+
+    component DeleteBtn: Rectangle {
+        id: db
+        property string label: ""
+        property bool danger: false
+        signal clicked()
+        implicitWidth: dbText.implicitWidth + 30
+        implicitHeight: 32
+        radius: Theme.rButton
+        color: db.danger ? (dbHover.hovered ? Qt.darker(Theme.err, 1.06) : Theme.err)
+                         : (dbHover.hovered ? "#f4f5f8" : Theme.bgPanel)
+        border.color: db.danger ? Theme.err : Theme.border
+        border.width: 1
+        Text {
+            id: dbText
+            anchors.centerIn: parent
+            text: db.label
+            font.family: Theme.fontSans
+            font.pixelSize: Theme.fontToolbar
+            font.weight: Font.DemiBold
+            color: db.danger ? Theme.accentFg : Theme.textPrimary
+        }
+        HoverHandler { id: dbHover }
+        TapHandler { onTapped: db.clicked() }
     }
 }

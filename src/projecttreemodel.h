@@ -55,6 +55,7 @@ public:
     bool createFile(const QString &parentPath, const QString &name);
     QString renameItem(const QString &path, const QString &newName);
     QString moveItem(const QString &sourcePath, const QString &targetDir);
+    bool removeItem(const QString &path); // удаляет файл/папку (папку рекурсивно)
 
 signals:
     void errorOccurred(const QString &message);

@@ -11,6 +11,21 @@ ProjectController::ProjectController(QObject *parent)
 {
     connect(m_model, &ProjectTreeModel::errorOccurred,
             this, &ProjectController::errorOccurred);
+    m_confirmDelete = QSettings().value(QStringLiteral("project/confirmDelete"), true).toBool();
+}
+
+void ProjectController::setConfirmDelete(bool on)
+{
+    if (m_confirmDelete == on)
+        return;
+    m_confirmDelete = on;
+    QSettings().setValue(QStringLiteral("project/confirmDelete"), on);
+    emit confirmDeleteChanged();
+}
+
+bool ProjectController::deleteItem(const QString &path)
+{
+    return m_model->removeItem(path);
 }
 
 QAbstractItemModel *ProjectController::model() const

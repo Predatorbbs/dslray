@@ -13,7 +13,41 @@
 DocumentController::DocumentController(QObject *parent)
     : QAbstractListModel(parent)
 {
-    m_safeMode = QSettings().value(QStringLiteral("editor/safeMode"), false).toBool();
+    QSettings s;
+    m_safeMode = s.value(QStringLiteral("editor/safeMode"), false).toBool();
+    m_wordWrap = s.value(QStringLiteral("editor/wordWrap"), false).toBool();
+    m_codeFontSize = qBound(14, s.value(QStringLiteral("editor/codeFontSize"), 14).toInt(), 32);
+}
+
+void DocumentController::setWordWrap(bool on)
+{
+    if (m_wordWrap == on)
+        return;
+    m_wordWrap = on;
+    QSettings().setValue(QStringLiteral("editor/wordWrap"), on);
+    emit wordWrapChanged();
+}
+
+void DocumentController::setCodeFontSize(int size)
+{
+    const int clamped = qBound(14, size, 32);
+    if (m_codeFontSize == clamped)
+        return;
+    m_codeFontSize = clamped;
+    QSettings().setValue(QStringLiteral("editor/codeFontSize"), clamped);
+    emit codeFontSizeChanged();
+}
+
+void DocumentController::closePath(const QString &path)
+{
+    const QString norm = normalize(path);
+    const QString prefix = norm + QLatin1Char('/');
+    // Закрываем сам файл и (если удалили папку) все вкладки внутри неё.
+    for (int i = m_docs.size() - 1; i >= 0; --i) {
+        const QString p = m_docs.at(i).path;
+        if (p == norm || p.startsWith(prefix))
+            closeAt(i);
+    }
 }
 
 int DocumentController::rowCount(const QModelIndex &parent) const

@@ -180,50 +180,12 @@ Item {
                         Layout.fillHeight: true
                         spacing: 12
 
-                        // Кастомный чекбокс «Безопасный режим».
-                        Rectangle {
-                            Layout.fillWidth: true
-                            implicitHeight: 44
-                            radius: Theme.rSmall
-                            color: chkHover.hovered ? "#f4f5f8" : Theme.bgSubtle
-                            border.color: Theme.border
-                            border.width: 1
-
-                            Row {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 10
-
-                                Rectangle {
-                                    width: 18; height: 18; radius: 4
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    color: Docs.safeMode ? Theme.accent : Theme.bgPanel
-                                    border.color: Docs.safeMode ? Theme.accent : Theme.border
-                                    border.width: 1
-                                    Text {
-                                        anchors.centerIn: parent
-                                        visible: Docs.safeMode
-                                        text: "✓"
-                                        font.pixelSize: 12
-                                        color: Theme.accentFg
-                                    }
-                                }
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "Безопасный режим"
-                                    font.family: Theme.fontSans
-                                    font.pixelSize: Theme.fontContent
-                                    font.weight: Font.Medium
-                                    color: Theme.textPrimary
-                                }
-                            }
-
-                            HoverHandler { id: chkHover }
-                            TapHandler { onTapped: root.requestToggleSafe() }
+                        // Безопасный режим.
+                        CheckRow {
+                            label: "Безопасный режим"
+                            checked: Docs.safeMode
+                            onToggled: root.requestToggleSafe()
                         }
-
-                        // Пояснение активного режима.
                         Text {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
@@ -234,7 +196,6 @@ Item {
                             font.pixelSize: Theme.fontContent
                             color: Theme.textMuted
                         }
-
                         Text {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
@@ -243,6 +204,38 @@ Item {
                             font.family: Theme.fontSans
                             font.pixelSize: Theme.fontPanelHeader
                             color: Theme.textFaint
+                        }
+
+                        // Перенос текста по строкам.
+                        CheckRow {
+                            label: "Перенос текста по строкам"
+                            checked: Docs.wordWrap
+                            onToggled: Docs.wordWrap = !Docs.wordWrap
+                        }
+
+                        // Размер шрифта кода (14…32).
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Размер шрифта кода"
+                                font.family: Theme.fontSans
+                                font.pixelSize: Theme.fontContent
+                                font.weight: Font.Medium
+                                color: Theme.textPrimary
+                            }
+                            StepperBtn { glyph: "−"; onClicked: Docs.codeFontSize = Docs.codeFontSize - 1 }
+                            Text {
+                                Layout.preferredWidth: 34
+                                horizontalAlignment: Text.AlignHCenter
+                                text: Docs.codeFontSize
+                                font.family: Theme.fontSans
+                                font.pixelSize: Theme.fontContent
+                                font.weight: Font.DemiBold
+                                color: Theme.textPrimary
+                            }
+                            StepperBtn { glyph: "+"; onClicked: Docs.codeFontSize = Docs.codeFontSize + 1 }
                         }
 
                         Item { Layout.fillHeight: true }
@@ -365,6 +358,71 @@ Item {
                 }
             }
         }
+    }
+
+    component CheckRow: Rectangle {
+        id: cr
+        property string label: ""
+        property bool checked: false
+        signal toggled()
+        Layout.fillWidth: true
+        implicitHeight: 44
+        radius: Theme.rSmall
+        color: crHover.hovered ? "#f4f5f8" : Theme.bgSubtle
+        border.color: Theme.border
+        border.width: 1
+
+        Row {
+            anchors.left: parent.left
+            anchors.leftMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 10
+            Rectangle {
+                width: 18; height: 18; radius: 4
+                anchors.verticalCenter: parent.verticalCenter
+                color: cr.checked ? Theme.accent : Theme.bgPanel
+                border.color: cr.checked ? Theme.accent : Theme.border
+                border.width: 1
+                Text {
+                    anchors.centerIn: parent
+                    visible: cr.checked
+                    text: "✓"
+                    font.pixelSize: 12
+                    color: Theme.accentFg
+                }
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: cr.label
+                font.family: Theme.fontSans
+                font.pixelSize: Theme.fontContent
+                font.weight: Font.Medium
+                color: Theme.textPrimary
+            }
+        }
+        HoverHandler { id: crHover }
+        TapHandler { onTapped: cr.toggled() }
+    }
+
+    component StepperBtn: Rectangle {
+        id: sb
+        property string glyph: ""
+        signal clicked()
+        implicitWidth: 28
+        implicitHeight: 26
+        radius: Theme.rSmall
+        color: sbHover.hovered ? "#f0f1f4" : Theme.bgPanel
+        border.color: Theme.border
+        border.width: 1
+        Text {
+            anchors.centerIn: parent
+            text: sb.glyph
+            font.family: Theme.fontSans
+            font.pixelSize: 16
+            color: Theme.textMuted
+        }
+        HoverHandler { id: sbHover }
+        TapHandler { onTapped: sb.clicked() }
     }
 
     component DlgBtn: Rectangle {

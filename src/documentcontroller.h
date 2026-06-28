@@ -28,6 +28,10 @@ class DocumentController : public QAbstractListModel
     // false — «Прозрачный режим» (запись на лету), true — «Безопасный режим»
     // (правки в черновик, в оригинал — по сохранению). Хранится в QSettings.
     Q_PROPERTY(bool safeMode READ safeMode WRITE setSafeMode NOTIFY safeModeChanged)
+    // Перенос текста по строкам в редакторе кода. Хранится в QSettings.
+    Q_PROPERTY(bool wordWrap READ wordWrap WRITE setWordWrap NOTIFY wordWrapChanged)
+    // Размер шрифта кода (14…32). Хранится в QSettings.
+    Q_PROPERTY(int codeFontSize READ codeFontSize WRITE setCodeFontSize NOTIFY codeFontSizeChanged)
 
 public:
     enum Roles {
@@ -51,6 +55,10 @@ public:
 
     bool safeMode() const { return m_safeMode; }
     void setSafeMode(bool on);
+    bool wordWrap() const { return m_wordWrap; }
+    void setWordWrap(bool on);
+    int codeFontSize() const { return m_codeFontSize; }
+    void setCodeFontSize(int size);
 
     // Открыть файл во вкладке. Если уже открыт — просто делает активным.
     Q_INVOKABLE void openFile(const QString &path);
@@ -61,6 +69,8 @@ public:
     // Реакция на переименование/перемещение файла на диске: обновить путь и
     // имя у открытой вкладки, если она ссылается на старый путь.
     Q_INVOKABLE void handlePathRenamed(const QString &oldPath, const QString &newPath);
+    // Закрыть вкладку удалённого файла (если он был открыт).
+    Q_INVOKABLE void closePath(const QString &path);
 
     // Применить правку активного документа. В «Прозрачном режиме» пишется
     // оригинал; в «Безопасном» — черновик, а документ помечается изменённым.
@@ -86,6 +96,8 @@ signals:
     void activeChanged();
     void errorOccurred(const QString &message);
     void safeModeChanged();
+    void wordWrapChanged();
+    void codeFontSizeChanged();
     // Содержимое активного документа заменено программно (например, отброс
     // черновика) — редактору нужно перечитать текст даже без смены пути.
     void activeContentReset();
@@ -105,4 +117,6 @@ private:
     QList<OpenDocument> m_docs;
     int  m_active = -1;
     bool m_safeMode = false;
+    bool m_wordWrap = false;
+    int  m_codeFontSize = 14;
 };
