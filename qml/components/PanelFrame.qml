@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import DSLRay
 
@@ -67,15 +68,21 @@ Rectangle {
             }
 
             Text {
+                id: subtitleLabel
                 text: root.subtitle
-                visible: text.length > 0
+                Layout.fillWidth: true
+                elide: Text.ElideRight
                 font.family: Theme.fontSans
                 font.pixelSize: Theme.fontPanelHeader
                 font.weight: Font.Medium
                 color: Theme.textGhost
-            }
 
-            Item { Layout.fillWidth: true }
+                // Полное имя во всплывающей подсказке, если оно не помещается.
+                HoverHandler { id: subHover }
+                ToolTip.visible: subHover.hovered && subtitleLabel.truncated
+                ToolTip.text: root.subtitle
+                ToolTip.delay: 500
+            }
 
             // Слот для контролов справа в шапке.
             Row {

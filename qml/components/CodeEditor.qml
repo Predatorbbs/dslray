@@ -20,6 +20,12 @@ PanelFrame {
 
     readonly property int lineHeight: Math.ceil(fm.lineSpacing)
 
+    // Символьное смещение начала строки, идущей сразу под верхом видимой
+    // области — для подсветки «пройденных» объектов в «Структуре». Берём с
+    // поправкой на строку, чтобы объект на самой верхней видимой строке уже
+    // считался пройденным. Пересчитывается при прокрутке и смене текста.
+    readonly property int topOffset: (ta.length, ta.positionAt(ta.leftPadding + 2, flick.contentY + root.lineHeight + 2))
+
     FontMetrics {
         id: fm
         font.family: Theme.fontMono
@@ -60,17 +66,16 @@ PanelFrame {
         onTriggered: Docs.applyEdit(ta.text)
     }
 
-    // Перейти к смещению в тексте и подкрутить его в видимую зону.
+    // Перейти к смещению: ставим каретку и подкручиваем строку объекта к верху
+    // (так он попадает в «пройденные» и подсвечивается в «Структуре»).
     function gotoOffset(pos) {
         if (!Docs.hasDocuments)
             return
         ta.cursorPosition = Math.max(0, Math.min(pos, ta.length))
         ta.forceActiveFocus()
         const r = ta.cursorRectangle
-        if (r.y < flick.contentY)
-            flick.contentY = Math.max(0, r.y - 2 * root.lineHeight)
-        else if (r.y + r.height > flick.contentY + flick.height)
-            flick.contentY = r.y + r.height - flick.height + 2 * root.lineHeight
+        const maxY = Math.max(0, ta.height - flick.height)
+        flick.contentY = Math.max(0, Math.min(r.y - 2, maxY))
     }
 
     Connections {
@@ -171,6 +176,9 @@ PanelFrame {
                 font.family: Theme.fontMono
                 font.pixelSize: 13
                 color: Theme.textPrimary
+                // Мягкое серо-голубое выделение, текст остаётся тёмным.
+                selectionColor: "#d7dbe6"
+                selectedTextColor: Theme.textPrimary
                 leftPadding: 8
                 topPadding: 6
                 bottomPadding: 6

@@ -24,6 +24,21 @@ PanelFrame {
     readonly property bool parseError: Docs.hasDocuments && elements === null
     readonly property bool empty:      !!elements && elements.length === 0
 
+    // Верх видимой области кода (символьное смещение) — приходит из CodeEditor.
+    property int codeTopOffset: -1
+    // «Текущий» объект — последний, чьё начало уже выше верха видимой области.
+    // Объекты 0..currentItemIndex считаются пройденными.
+    readonly property int currentItemIndex: {
+        if (!elements || elements.length === 0)
+            return -1
+        var last = -1
+        for (var i = 0; i < elements.length; ++i) {
+            if (elements[i].index <= codeTopOffset) last = i
+            else break
+        }
+        return last
+    }
+
     // Проверяет валидность JSON и собирает позиции всех "elementName".
     function computeElements(text) {
         if (!text || text.length === 0)
@@ -74,12 +89,26 @@ PanelFrame {
             required property int index
             required property var modelData
 
+            readonly property bool passed:  rowItem.index <= root.currentItemIndex
+            readonly property bool current: rowItem.index === root.currentItemIndex
+
             width: list.width
             implicitHeight: 27
 
             Rectangle {
                 anchors.fill: parent
-                color: rowMouse.containsMouse ? Theme.bgSubtle : "transparent"
+                color: rowItem.current ? Qt.alpha(Theme.accent, 0.10)
+                     : (rowMouse.containsMouse ? Theme.bgSubtle : "transparent")
+            }
+
+            // Левая полоса у пройденных объектов («трасса»).
+            Rectangle {
+                visible: rowItem.passed
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: 2
+                color: Theme.accent
             }
 
             Row {
@@ -92,7 +121,7 @@ PanelFrame {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "◆"
                     font.pixelSize: 9
-                    color: Theme.accent
+                    color: rowItem.passed ? Theme.accent : Theme.textGhost
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
@@ -114,8 +143,8 @@ PanelFrame {
                     text: rowItem.modelData.name
                     font.family: Theme.fontSans
                     font.pixelSize: Theme.fontContent
-                    font.weight: Font.Medium
-                    color: Theme.textPrimary
+                    font.weight: rowItem.current ? Font.DemiBold : Font.Medium
+                    color: rowItem.passed ? Theme.accent : Theme.textPrimary
                     elide: Text.ElideRight
                 }
             }

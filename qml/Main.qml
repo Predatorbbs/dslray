@@ -64,68 +64,92 @@ ApplicationWindow {
             Layout.fillHeight: true
             color: Theme.bgWorkspace
 
-            RowLayout {
+            // Горизонтальный сплиттер: левая колонка ⟷ центр+свойства.
+            SplitView {
                 anchors.fill: parent
                 anchors.margins: Theme.gap
-                spacing: Theme.gap
+                orientation: Qt.Horizontal
 
-                // ── Левая колонка: ПРОЕКТ + СТРУКТУРА ─────────────
-                ColumnLayout {
-                    Layout.preferredWidth: Theme.sidebarLeftWidth
-                    Layout.minimumWidth: Theme.sidebarLeftWidth
-                    Layout.maximumWidth: Theme.sidebarLeftWidth
-                    Layout.fillHeight: true
-                    spacing: Theme.gap
+                // Вертикальная ручка между колонками.
+                handle: Rectangle {
+                    id: vHandle
+                    implicitWidth: Theme.gap
+                    color: "transparent"
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 5; height: 46; radius: 3
+                        color: vHandle.SplitHandle.pressed ? Theme.accent
+                             : (vHandle.SplitHandle.hovered ? "#b9bec9" : "#cfd3db")
+                    }
+                    HoverHandler { cursorShape: Qt.SplitHCursor }
+                }
+
+                // ── Левая колонка: ПРОЕКТ + СТРУКТУРА (160…550px) ──
+                Item {
+                    SplitView.preferredWidth: Theme.sidebarLeftWidth
+                    SplitView.minimumWidth: 160
+                    SplitView.maximumWidth: 550
 
                     FilesPanel {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: parent.height * Theme.filesProjectRatio
+                        id: filesPanel
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: Math.round((parent.height - Theme.gap) * Theme.filesProjectRatio)
                     }
                     StructurePanel {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
+                        anchors.top: filesPanel.bottom
+                        anchors.topMargin: Theme.gap
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        codeTopOffset: codeEditor.topOffset
                         onObjectActivated: function (offset) { codeEditor.gotoOffset(offset) }
                     }
                 }
 
-                // ── Центр: ДОСКА над КОДОМ с ручкой между ─────────
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 0
+                // ── Центр + Свойства ──────────────────────────────
+                RowLayout {
+                    SplitView.fillWidth: true
+                    spacing: Theme.gap
 
-                    BoardPanel {
+                    // Вертикальный сплиттер: ДОСКА над КОДОМ (мин. 100px каждая).
+                    SplitView {
+                        orientation: Qt.Vertical
                         Layout.fillWidth: true
-                        // На шаге 1 — фиксированная доля 58%; на шаге 2
-                        // высоту начнёт контролировать SplitView.
-                        Layout.preferredHeight: parent.height * Theme.boardRatio
-                    }
+                        Layout.fillHeight: true
 
-                    // Ручка сплиттера (визуальная заглушка).
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: Theme.splitterHandle
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: 46; height: 5
-                            radius: 3
-                            color: "#cfd3db"
+                        handle: Rectangle {
+                            id: hHandle
+                            implicitHeight: Theme.splitterHandle
+                            color: "transparent"
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 46; height: 5; radius: 3
+                                color: hHandle.SplitHandle.pressed ? Theme.accent
+                                     : (hHandle.SplitHandle.hovered ? "#b9bec9" : "#cfd3db")
+                            }
+                            HoverHandler { cursorShape: Qt.SplitVCursor }
+                        }
+
+                        BoardPanel {
+                            SplitView.preferredHeight: 380
+                            SplitView.minimumHeight: 100
+                        }
+                        CodeEditor {
+                            id: codeEditor
+                            SplitView.fillHeight: true
+                            SplitView.minimumHeight: 100
                         }
                     }
 
-                    CodeEditor {
-                        id: codeEditor
-                        Layout.fillWidth: true
+                    // ── Правая колонка: СВОЙСТВА ──────────────────
+                    PropertiesPanel {
+                        Layout.preferredWidth: Theme.sidebarRightWidth
+                        Layout.minimumWidth: Theme.sidebarRightWidth
+                        Layout.maximumWidth: Theme.sidebarRightWidth
                         Layout.fillHeight: true
                     }
-                }
-
-                // ── Правая колонка: СВОЙСТВА ──────────────────────
-                PropertiesPanel {
-                    Layout.preferredWidth: Theme.sidebarRightWidth
-                    Layout.minimumWidth: Theme.sidebarRightWidth
-                    Layout.maximumWidth: Theme.sidebarRightWidth
-                    Layout.fillHeight: true
                 }
             }
         }

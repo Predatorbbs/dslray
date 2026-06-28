@@ -444,6 +444,7 @@ PanelFrame {
                     }
 
                     Text {
+                        id: nameLabel
                         visible: !node.renaming
                         anchors.left: iconSlot.right
                         anchors.leftMargin: 6.5
@@ -457,6 +458,11 @@ PanelFrame {
                         font.weight: node.selected ? Font.DemiBold : Font.Medium
                         color: node.selected ? tree.accent : tree.rowText
                         elide: Text.ElideRight
+
+                        // Полное имя во всплывающей подсказке, если обрезано.
+                        ToolTip.visible: rowMouse.containsMouse && nameLabel.truncated
+                        ToolTip.text: node.nameText
+                        ToolTip.delay: 500
                     }
                 }
 
