@@ -38,7 +38,7 @@ ApplicationWindow {
     // Ctrl+S — сохранить активный документ (в «Безопасном режиме» пишет
     // черновик в оригинал и удаляет его). Видимая кнопка появится позже.
     Shortcut {
-        sequence: StandardKey.Save
+        sequences: [ StandardKey.Save ]
         onActivated: Docs.saveActive()
     }
 
