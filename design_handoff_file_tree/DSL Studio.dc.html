@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<template id="__bundler_thumbnail" data-bg-color="#4b5bd6">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#4b5bd6"/>
+    <rect x="270" y="250" width="290" height="300" rx="22" fill="#ffffff" opacity="0.95"/>
+    <rect x="300" y="300" width="230" height="46" rx="9" fill="#4b5bd6" opacity="0.18"/>
+    <rect x="300" y="370" width="100" height="150" rx="9" fill="#4b5bd6" opacity="0.18"/>
+    <rect x="420" y="370" width="110" height="150" rx="9" fill="#4b5bd6"/>
+    <rect x="640" y="250" width="290" height="300" rx="22" fill="#ffffff" opacity="0.95"/>
+    <rect x="670" y="290" width="170" height="20" rx="6" fill="#1f2430" opacity="0.6"/>
+    <rect x="670" y="335" width="230" height="16" rx="6" fill="#4b5bd6" opacity="0.4"/>
+    <rect x="670" y="375" width="230" height="16" rx="6" fill="#4b5bd6" opacity="0.25"/>
+    <rect x="670" y="415" width="180" height="16" rx="6" fill="#4b5bd6" opacity="0.25"/>
+  </svg>
+</template>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#eceef2;font-family:'Hanken Grotesk',system-ui,sans-serif;color:#1f2430}
+    input,select,button,textarea{font-family:inherit}
+    ::selection{background:#d8ddfb}
+    .dsl-scroll::-webkit-scrollbar{width:10px;height:10px}
+    .dsl-scroll::-webkit-scrollbar-thumb{background:#d3d7df;border-radius:6px;border:3px solid transparent;background-clip:content-box}
+    .dsl-scroll::-webkit-scrollbar-track{background:transparent}
+  </style>
+</helmet>
+<div style="min-height:100vh;padding:22px;display:flex;flex-direction:column;align-items:center;gap:13px">
+
+  <div style="width:100%;max-width:1400px;display:flex;align-items:baseline;justify-content:space-between;gap:16px">
+    <div style="font-size:20px;font-weight:700;letter-spacing:-0.2px">DSL Studio <span style="color:#9aa0ad;font-weight:500;font-size:15px">· живой редактор</span></div>
+    <div style="font-size:13px;color:#9aa0ad">клик по блоку выделяет его на доске, в дереве и в коде</div>
+  </div>
+
+  <div style="width:100%;max-width:1400px;height:854px;display:flex;flex-direction:column;background:#fff;border:1px solid #e0e3e9;border-radius:14px;box-shadow:0 12px 40px -18px rgba(25,30,55,0.28),0 2px 6px rgba(25,30,55,0.04);overflow:hidden">
+
+    <!-- toolbar -->
+    <div style="position:relative;display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #eceef2;background:#fcfcfd">
+      <button onClick="{{ onMenu }}" title="Меню" style="font-size:16px;line-height:1;border:1px solid #e0e3e9;background:#fff;border-radius:8px;width:34px;height:34px;cursor:pointer;color:#3a4050">☰</button>
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:50px;left:14px;z-index:30;background:#fff;border:1px solid #e0e3e9;border-radius:10px;box-shadow:0 14px 36px -12px rgba(25,30,55,0.3);padding:5px;min-width:208px;font-size:13.5px">
+          <div onClick="{{ onOpenFolder }}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;cursor:pointer;color:#3a4050">📁 Открыть папку проекта…</div>
+          <div onClick="{{ onMenu }}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;cursor:pointer;color:#9aa0ad">⤓ Импортировать .dsl</div>
+          <div style="height:1px;background:#eef0f3;margin:4px 6px"></div>
+          <div onClick="{{ onMenu }}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;cursor:pointer;color:#9aa0ad">⚙ Настройки</div>
+        </div>
+      </sc-if>
+      <span style="width:1px;height:22px;background:#e6e8ed;margin:0 1px"></span>
+      <button onClick="{{ onSave }}" style="font-size:13px;font-weight:500;border:1px solid #e0e3e9;background:#fff;border-radius:8px;padding:6px 13px;cursor:pointer;color:#3a4050">Сохранить</button>
+      <button onClick="{{ onRun }}" style="font-size:13px;font-weight:600;border:1px solid {{ acc }};background:{{ acc }};border-radius:8px;padding:6px 14px;cursor:pointer;color:#fff;display:flex;align-items:center;gap:6px"><span style="font-size:10px">▶</span>Запуск</button>
+      <span style="width:1px;height:22px;background:#e6e8ed;margin:0 3px"></span>
+      <button onClick="{{ onUndo }}" title="Отменить" style="font-size:15px;border:1px solid #e0e3e9;background:#fff;border-radius:8px;width:34px;height:34px;cursor:pointer;color:#6b7280">↶</button>
+      <button onClick="{{ onRedo }}" title="Повторить" style="font-size:15px;border:1px solid #e0e3e9;background:#fff;border-radius:8px;width:34px;height:34px;cursor:pointer;color:#6b7280">↷</button>
+      <span style="flex:1"></span>
+      <span style="font-size:12.5px;color:#9aa0ad;display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:50%;background:#3bb273;display:inline-block"></span>автосинхронизация</span>
+    </div>
+
+    <!-- file tabs -->
+    <div style="display:flex;align-items:stretch;gap:4px;padding:0 8px;border-bottom:1px solid #eceef2;background:#f6f7f9">
+      <button onClick="{{ onTabsLeft }}" title="Прокрутить влево" style="align-self:center;border:1px solid #e0e3e9;background:#fff;border-radius:7px;width:26px;height:26px;cursor:pointer;color:#6b7280;font-size:12px">◀</button>
+      <div ref="{{ tabStripRef }}" class="dsl-scroll" style="flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;display:flex;align-items:stretch;gap:2px;scrollbar-width:none">{{ tabsContent }}</div>
+      <button onClick="{{ onTabsRight }}" title="Прокрутить вправо" style="align-self:center;border:1px solid #e0e3e9;background:#fff;border-radius:7px;width:26px;height:26px;cursor:pointer;color:#6b7280;font-size:12px">▶</button>
+      <button onClick="{{ onNewTab }}" title="Новая вкладка" style="align-self:center;border:1px solid #e0e3e9;background:#fff;border-radius:7px;width:26px;height:26px;cursor:pointer;color:#6b7280;font-size:15px">+</button>
+    </div>
+
+    <!-- layout -->
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:236px minmax(0,1fr) 314px;gap:13px;padding:13px;background:#f1f3f6">
+
+      <!-- left: project + structure -->
+      <div style="display:flex;flex-direction:column;gap:13px;min-height:0;min-width:0">
+        <div style="flex:0 0 44%;min-height:0;background:#fff;border:1px solid #e6e8ed;border-radius:11px;box-shadow:0 1px 2px rgba(25,30,55,0.04);display:flex;flex-direction:column;overflow:hidden">
+          <div style="padding:8px 10px 8px 13px;border-bottom:1px solid #eef0f3;background:#fbfbfc;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:11.5px;font-weight:700;letter-spacing:0.7px;color:#9aa0ad">ПРОЕКТ</span>
+            <span style="display:flex;gap:5px">
+              <button onClick="{{ onNewFolder }}" title="Создать папку" style="border:1px solid #e6e8ed;background:#fff;border-radius:6px;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M1.6 4.4c0-.62.5-1.12 1.12-1.12h2.4c.3 0 .58.12.78.35l.6.7c.2.23.48.35.78.35h4.6c.62 0 1.12.5 1.12 1.12v4.45c0 .62-.5 1.12-1.12 1.12H2.72c-.62 0-1.12-.5-1.12-1.12z" fill="#9aa0ad"></path><path d="M8 7.1v2.9M6.55 8.55h2.9" stroke="#fff" stroke-width="1.25" stroke-linecap="round"></path></svg></button>
+              <button onClick="{{ onNewFile }}" title="Создать файл" style="border:1px solid #e6e8ed;background:#fff;border-radius:6px;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M4.1 1.8h4.0L12 5.6v7.6c0 .44-.36.8-.8.8H4.1c-.44 0-.8-.36-.8-.8V2.6c0-.44.36-.8.8-.8z" fill="#9aa0ad"></path><path d="M8 8.0v2.9M6.55 9.45h2.9" stroke="#fff" stroke-width="1.25" stroke-linecap="round"></path></svg></button>
+            </span>
+          </div>
+          <div class="dsl-scroll" style="flex:1;min-height:0;overflow:auto;padding:6px 6px">{{ projectContent }}</div>
+        </div>
+        <div style="flex:1;min-height:0;background:#fff;border:1px solid #e6e8ed;border-radius:11px;box-shadow:0 1px 2px rgba(25,30,55,0.04);display:flex;flex-direction:column;overflow:hidden">
+          <div style="padding:9px 13px;border-bottom:1px solid #eef0f3;background:#fbfbfc;font-size:11.5px;font-weight:700;letter-spacing:0.7px;color:#9aa0ad;display:flex;align-items:center;justify-content:space-between"><span>СТРУКТУРА</span><span style="font-weight:500;color:#c4c8d2;letter-spacing:0">main.dsl</span></div>
+          <div class="dsl-scroll" style="flex:1;min-height:0;overflow:auto;padding:6px 5px">{{ treeContent }}</div>
+        </div>
+      </div>
+
+      <!-- center: board over code, resizable -->
+      <div ref="{{ centerRef }}" style="display:flex;flex-direction:column;min-height:0;min-width:0">
+        <div style="{{ boardStyle }}">
+          <div style="height:100%;background:#fff;border:1px solid #e6e8ed;border-radius:11px;box-shadow:0 1px 2px rgba(25,30,55,0.04);display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:7px 10px 7px 13px;border-bottom:1px solid #eef0f3;background:#fbfbfc;display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11.5px;font-weight:700;letter-spacing:0.7px;color:#9aa0ad">ДОСКА</span>
+              <span style="display:flex;align-items:center;gap:4px">
+                <button onClick="{{ onZoomOut }}" title="Уменьшить" style="border:1px solid #e6e8ed;background:#fff;border-radius:6px;width:26px;height:26px;cursor:pointer;color:#6b7280;font-size:15px">−</button>
+                <span style="font-size:12px;color:#6b7280;min-width:42px;text-align:center;font-variant-numeric:tabular-nums">{{ boardZoomLabel }}</span>
+                <button onClick="{{ onZoomIn }}" title="Увеличить" style="border:1px solid #e6e8ed;background:#fff;border-radius:6px;width:26px;height:26px;cursor:pointer;color:#6b7280;font-size:15px">+</button>
+                <button onClick="{{ onZoomReset }}" title="Сбросить вид" style="border:1px solid #e6e8ed;background:#fff;border-radius:6px;height:26px;padding:0 9px;cursor:pointer;color:#6b7280;font-size:12px">сброс</button>
+              </span>
+            </div>
+            <div ref="{{ boardRef }}" onMouseDown="{{ onBoardPanDown }}" class="dsl-scroll" style="flex:1;min-height:0;overflow:hidden;position:relative;background-color:#f7f8fa;background-image:radial-gradient(#dfe2e8 1.1px,transparent 1.1px);background-size:18px 18px;cursor:grab">
+              <div style="{{ boardViewStyle }}">{{ boardContent }}</div>
+              <div style="position:absolute;left:12px;bottom:10px;font-size:11px;color:#bcc1cc;pointer-events:none">тяни фон — панорама · ⠿ на блоке — перетащить</div>
+            </div>
+          </div>
+        </div>
+        <div onMouseDown="{{ onSplitDown }}" style="height:13px;flex:0 0 13px;display:flex;align-items:center;justify-content:center;cursor:row-resize">
+          <div style="width:46px;height:5px;border-radius:3px;background:#cfd3db"></div>
+        </div>
+        <div style="flex:1;min-height:0;display:grid;grid-template-rows:minmax(0,1fr)">
+          <div style="background:#fff;border:1px solid #e6e8ed;border-radius:11px;box-shadow:0 1px 2px rgba(25,30,55,0.04);display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:9px 13px;border-bottom:1px solid #eef0f3;background:#fbfbfc;font-size:11.5px;font-weight:700;letter-spacing:0.7px;color:#9aa0ad;display:flex;align-items:center;justify-content:space-between">
+              <span style="display:flex;align-items:center;gap:8px">КОД · main.dsl<span style="{{ codeDotStyle }}"></span></span>
+              <span style="{{ codeErrStyle }}">{{ codeErrText }}</span>
+            </div>
+            <div style="flex:1;min-height:0">{{ codeEditor }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- right: properties -->
+      <div style="min-width:0;display:grid;grid-template-rows:minmax(0,1fr)">
+        <div style="background:#fff;border:1px solid #e6e8ed;border-radius:11px;box-shadow:0 1px 2px rgba(25,30,55,0.04);display:flex;flex-direction:column;overflow:hidden">
+          <div style="padding:9px 13px;border-bottom:1px solid #eef0f3;background:#fbfbfc;font-size:11.5px;font-weight:700;letter-spacing:0.7px;color:#9aa0ad">СВОЙСТВА</div>
+          <div class="dsl-scroll" style="flex:1;min-height:0;overflow:auto;padding:13px 14px">{{ propsContent }}</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- status bar -->
+    <div style="display:flex;align-items:center;gap:16px;padding:6px 16px;border-top:1px solid #eceef2;background:#fbfbfc;font-size:12.5px;color:#9aa0ad">
+      <span style="display:flex;align-items:center;gap:7px;color:#3a4050"><span style="width:18px;height:18px;border-radius:50%;background:{{ acc }};color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ userInitial }}</span>{{ userName }}</span>
+      <span style="width:1px;height:13px;background:#e6e8ed"></span>
+      <span>{{ fileName }}</span>
+      <span style="flex:1"></span>
+      <span>строк: {{ lineCount }}</span>
+      <span>символов: {{ charCount }}</span>
+      <span>≈ {{ tokenCount }} токенов</span>
+      <span style="width:1px;height:13px;background:#e6e8ed"></span>
+      <span>v{{ appVersion }}</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:910},&quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#4b5bd6&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;userName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;designer&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;appVersion&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;0.4.0&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.LH = 21; this.PAD = 8;
+    this.centerRef = React.createRef();
+    this.boardRef = React.createRef();
+    this.taRef = React.createRef();
+    this.layerRef = React.createRef();
+    this.gutInnerRef = React.createRef();
+    this.tabStripRef = React.createRef();
+
+    const sample = {
+      elementName:'Screen', view:'column', padding:16,
+      children:[
+        { elementName:'Header', view:'row', padding:12, item:'logo' },
+        { elementRow:[
+          { elementName:'Sidebar', view:'column', item:'menu', behavior:{ visible:true } },
+          { elementName:'Content', view:'column', item:'list', action:'openItem', behavior:{ scrollable:true, visible:true } }
+        ] },
+        { elementName:'Footer', view:'row' }
+      ]
+    };
+    const built = this.buildCode(sample);
+    this._map = built.map;
+    this.state = {
+      code: built.code, tree: sample, error: null, activeLine: 0,
+      selPath: ['children', 1, 'elementRow', 1],
+      boardPct: 0.56, history: [built.code], histIdx: 0, flash: null,
+      zoom: 1, panX: 26, panY: 22, menuOpen: false,
+      tabs: [{id:'main.dsl',name:'main.dsl'},{id:'header.dsl',name:'header.dsl'}], activeTab: 'main.dsl',
+      project: [{type:'folder',name:'myApp',open:true,children:[
+        {type:'folder',name:'screens',open:true,children:[
+          {type:'file',name:'main.dsl'},
+          {type:'file',name:'header.dsl'},
+          {type:'file',name:'dashboard.json'}
+        ]},
+        {type:'folder',name:'components',open:true,children:[
+          {type:'file',name:'button.dsl'},
+          {type:'file',name:'card.dsl'}
+        ]},
+        {type:'folder',name:'assets',open:false,children:[]},
+        {type:'file',name:'theme.json'},
+        {type:'file',name:'app.config.json'}
+      ]}],
+      projSel: null, dropProj: null, dropBoard: null
+    };
+  }
+
+  componentDidMount() {
+    try {
+      const c = localStorage.getItem('dslStudio.code');
+      if (c) { const t = JSON.parse(c); this._map = this.buildCode(t).map; this.setState({ code:c, tree:t, history:[c], histIdx:0 }); }
+      const p = parseFloat(localStorage.getItem('dslStudio.boardPct'));
+      if (p >= 0.2 && p <= 0.85) this.setState({ boardPct:p });
+    } catch(e) {}
+  }
+  persist(code) { try { localStorage.setItem('dslStudio.code', code); } catch(e){} }
+
+  // ===== custom pretty-printer that records line index per node path =====
+  buildCode(tree) {
+    const lines = [], map = {}; const ind = (d) => '  '.repeat(d);
+    const emit = (val, depth, path, prefix, comma) => {
+      const pk = JSON.stringify(path);
+      if (val && typeof val === 'object') {
+        map[pk] = lines.length;
+        const arr = Array.isArray(val), open = arr?'[':'{', close = arr?']':'}';
+        const keys = arr ? val.map((_,i)=>i) : Object.keys(val);
+        if (keys.length === 0) { lines.push(ind(depth)+prefix+open+close+(comma?',':'')); return; }
+        lines.push(ind(depth)+prefix+open);
+        keys.forEach((k,i) => {
+          const cp = arr ? '' : JSON.stringify(k)+': ';
+          emit(val[k], depth+1, path.concat([k]), cp, i < keys.length-1);
+        });
+        lines.push(ind(depth)+close+(comma?',':''));
+      } else {
+        map[pk] = lines.length;
+        lines.push(ind(depth)+prefix+JSON.stringify(val)+(comma?',':''));
+      }
+    };
+    emit(tree, 0, [], '', false);
+    return { code: lines.join('\n'), map };
+  }
+
+  // ===== helpers =====
+  getNode(tree, path) { if (!path) return null; let c = tree; for (const k of path){ if (c==null) return null; c = c[k]; } return c; }
+  isSel(path) { return JSON.stringify(path) === JSON.stringify(this.state.selPath); }
+  labelOf(node) { return node && node.elementRow ? 'elementRow' : (node && node.elementName) || 'element'; }
+  isDescend(anc, p) { if (!anc) return false; if (p.length < anc.length) return false; for (let i=0;i<anc.length;i++) if (JSON.stringify(p[i])!==JSON.stringify(anc[i])) return false; return p.length>anc.length; }
+
+  commit(tree, extra) {
+    const { code, map } = this.buildCode(tree); this._map = map;
+    const h = this.state.history.slice(0, this.state.histIdx + 1); h.push(code);
+    this.setState(Object.assign({ tree, code, error:null, history:h, histIdx:h.length-1 }, extra||{}));
+    this.persist(code);
+  }
+  selectAndGoto(path) {
+    this.setState({ selPath: path });
+    const line = this._map[JSON.stringify(path)];
+    if (line != null) requestAnimationFrame(() => this.gotoLine(line));
+  }
+  updateProp(path, key, value) {
+    const tree = JSON.parse(JSON.stringify(this.state.tree));
+    const n = this.getNode(tree, path); if (!n) return;
+    if (value === '' || value == null) delete n[key]; else n[key] = value;
+    this.commit(tree);
+  }
+  updateBehavior(path, flag, val) {
+    const tree = JSON.parse(JSON.stringify(this.state.tree));
+    const n = this.getNode(tree, path); if (!n) return;
+    n.behavior = Object.assign({}, n.behavior);
+    if (val) n.behavior[flag] = true; else delete n.behavior[flag];
+    if (Object.keys(n.behavior).length === 0) delete n.behavior;
+    this.commit(tree);
+  }
+  addChild(path, kind) {
+    const tree = JSON.parse(JSON.stringify(this.state.tree));
+    const n = this.getNode(tree, path); if (!n) return;
+    const el = kind === 'row' ? { elementRow:[ { elementName:'Item', view:'column' } ] } : { elementName:'NewBlock', view:'column' };
+    const ck = n.elementRow ? 'elementRow' : 'children';
+    if (!n[ck]) n[ck] = []; n[ck].push(el);
+    this.commit(tree, { selPath: path.concat([ck, n[ck].length - 1]) });
+  }
+  deleteNode(path) {
+    if (!path || path.length === 0) return;
+    const tree = JSON.parse(JSON.stringify(this.state.tree));
+    const parent = this.getNode(tree, path.slice(0, -1)); const idx = path[path.length - 1];
+    if (Array.isArray(parent)) parent.splice(idx, 1);
+    this.commit(tree, { selPath: null });
+  }
+  moveBoard(from, to) {
+    if (!from || !to) return; if (JSON.stringify(from)===JSON.stringify(to)) return; if (this.isDescend(from, to)) return;
+    const tree = JSON.parse(JSON.stringify(this.state.tree));
+    const fromArr = this.getNode(tree, from.slice(0,-1)); const node = this.getNode(tree, from);
+    if (!Array.isArray(fromArr) || node==null) return;
+    const fi = from[from.length-1]; fromArr.splice(fi, 1);
+    const toArr = this.getNode(tree, to.slice(0,-1)); if (!Array.isArray(toArr)) return;
+    let ti = to[to.length-1];
+    if (fromArr === toArr && fi < ti) ti--;
+    toArr.splice(ti, 0, node);
+    this.commit(tree, { selPath: null, dropBoard:null });
+  }
+
+  // ===== history =====
+  handleCodeChange(text) {
+    let tree = this.state.tree, error = null;
+    try { tree = JSON.parse(text); this._map = this.buildCode(tree).map; }
+    catch(e) { error = this.parseErr(e, text); }
+    const h = this.state.history.slice(); h[this.state.histIdx] = text;
+    this.setState({ code:text, tree: error ? this.state.tree : tree, error, history:h });
+    this.persist(text);
+  }
+  parseErr(e, text) {
+    const m = /position (\d+)/.exec(e.message); let line = null, col = null;
+    if (m) { const pos = +m[1]; const before = text.slice(0, pos); line = before.split('\n').length; col = pos - before.lastIndexOf('\n'); }
+    return { msg: e.message.replace(/^JSON.parse: /,''), line, col };
+  }
+  undo() { if (this.state.histIdx > 0) this.jump(this.state.histIdx - 1); }
+  redo() { if (this.state.histIdx < this.state.history.length - 1) this.jump(this.state.histIdx + 1); }
+  jump(i) {
+    const code = this.state.history[i]; let tree = this.state.tree, error=null;
+    try { tree = JSON.parse(code); this._map = this.buildCode(tree).map; } catch(e){ error=this.parseErr(e,code); }
+    this.setState({ histIdx:i, code, tree: error?this.state.tree:tree, error }); this.persist(code);
+  }
+  flash(msg) { this.setState({ flash: msg }); clearTimeout(this._ft); this._ft = setTimeout(() => this.setState({ flash:null }), 1700); }
+
+  // ===== code editor scroll/caret =====
+  onCodeScroll() {
+    const ta = this.taRef.current; if (!ta) return;
+    const st = ta.scrollTop, sl = ta.scrollLeft;
+    if (this.layerRef.current) this.layerRef.current.style.transform = 'translate('+(-sl)+'px,'+(-st)+'px)';
+    if (this.gutInnerRef.current) this.gutInnerRef.current.style.transform = 'translateY('+(-st)+'px)';
+  }
+  syncCaret() {
+    const ta = this.taRef.current; if (!ta) return;
+    const line = ta.value.slice(0, ta.selectionStart).split('\n').length - 1;
+    if (line !== this.state.activeLine) this.setState({ activeLine: line });
+  }
+  gotoLine(line) {
+    const ta = this.taRef.current; if (!ta) return;
+    const parts = ta.value.split('\n'); let pos = 0; for (let i=0;i<line && i<parts.length;i++) pos += parts[i].length+1;
+    ta.focus(); ta.setSelectionRange(pos, pos);
+    ta.scrollTop = Math.max(0, (line-2)*this.LH);
+    this.setState({ activeLine: line }); requestAnimationFrame(() => this.onCodeScroll());
+  }
+
+  // ===== board pan & zoom =====
+  startPan(e) {
+    if (e.target.closest && e.target.closest('[data-block]')) return; // let blocks handle clicks/drag
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY, px = this.state.panX, py = this.state.panY; let moved = false;
+    const box = this.boardRef.current; if (box) box.style.cursor = 'grabbing';
+    const move = (ev) => { const dx = ev.clientX-sx, dy = ev.clientY-sy; if (Math.abs(dx)+Math.abs(dy) > 3) moved = true; this.setState({ panX: px+dx, panY: py+dy }); };
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); if (box) box.style.cursor='grab'; if (!moved) this.setState({ selPath:null }); };
+    document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+  }
+  zoomBy(d) { this.setState(s => ({ zoom: Math.max(0.5, Math.min(1.7, +(s.zoom + d).toFixed(2))) })); }
+
+  startSplit(e) {
+    e.preventDefault(); const container = this.centerRef.current; if (!container) return;
+    const move = (ev) => { const r = container.getBoundingClientRect(); let pct=(ev.clientY-r.top)/r.height; pct=Math.max(0.22,Math.min(0.82,pct)); this.setState({ boardPct:pct }); try{localStorage.setItem('dslStudio.boardPct',String(pct));}catch(e){} };
+    const up = () => { document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); };
+    document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+  }
+
+  // ===== tabs =====
+  scrollTabs(d) { const s = this.tabStripRef.current; if (s) s.scrollBy({ left:d, behavior:'smooth' }); }
+  openTab(name) { // dedup
+    const ex = this.state.tabs.find(t => t.id === name);
+    if (ex) this.setState({ activeTab: name });
+    else this.setState(s => ({ tabs: s.tabs.concat([{id:name,name}]), activeTab:name }));
+  }
+  closeTab(name, e) { e.stopPropagation(); this.setState(s => { const tabs = s.tabs.filter(t=>t.id!==name); return { tabs, activeTab: s.activeTab===name ? (tabs[0]&&tabs[0].id) : s.activeTab }; }); }
+
+  // ===== project tree =====
+  pResolve(arr, path) { let node=null, a=arr; for (let i=0;i<path.length;i++){ node=a[path[i]]; a=node&&node.children; } return node; }
+  pParentArr(root, path) { if (path.length===1) return root; const parent=this.pResolve(root, path.slice(0,-1)); return parent.children; }
+  toggleFolder(path) { const root=JSON.parse(JSON.stringify(this.state.project)); const n=this.pResolve(root,path); if(n&&n.type==='folder'){ n.open=!n.open; this.setState({project:root}); } }
+  newProjectItem(type) {
+    const root = JSON.parse(JSON.stringify(this.state.project));
+    let targetArr, base;
+    const sel = this.state.projSel ? this.pResolve(root, this.state.projSel) : null;
+    if (sel && sel.type==='folder') { sel.open=true; targetArr = sel.children; }
+    else if (this.state.projSel) { targetArr = this.pParentArr(root, this.state.projSel); }
+    else { targetArr = root[0].children; root[0].open=true; }
+    const n = type==='folder'
+      ? { type:'folder', name:'Новая папка', open:true, children:[] }
+      : { type:'file', name:'untitled'+(Math.floor(Math.random()*90)+10)+'.dsl' };
+    targetArr.push(n); this.setState({ project: root });
+  }
+  moveProject(from, to, into) {
+    if (!from || !to) return; if (JSON.stringify(from)===JSON.stringify(to)) return;
+    const root = JSON.parse(JSON.stringify(this.state.project));
+    const node = this.pResolve(root, from), target = this.pResolve(root, to);
+    if (!node || !target) return;
+    if (node.children) { const tj = JSON.stringify(to), fj=JSON.stringify(from); if (tj.indexOf(fj.slice(0,-1)) === 0 && to.length>=from.length) {} }
+    const fromArr = this.pParentArr(root, from); const fi = fromArr.indexOf(node); if (fi<0) return;
+    fromArr.splice(fi, 1);
+    if (into && target.type==='folder') { target.open=true; target.children=target.children||[]; target.children.push(node); }
+    else { const toArr = this.pParentArr(root, to); const ti = toArr.indexOf(target); toArr.splice(ti<0?toArr.length:ti, 0, node); }
+    this.setState({ project: root, dropProj:null });
+  }
+
+  // ===== renderers =====
+  renderBoardNode(node, path) {
+    const t = this.theme(), isSel = this.isSel(path), key = JSON.stringify(path), isDrop = JSON.stringify(this.state.dropBoard)===key;
+    const click = (e) => { e.stopPropagation(); this.selectAndGoto(path); };
+    const dragProps = (p) => ({
+      onDragOver: (e) => { e.preventDefault(); e.stopPropagation(); if (JSON.stringify(this.state.dropBoard)!==JSON.stringify(p)) this.setState({ dropBoard:p }); },
+      onDrop: (e) => { e.preventDefault(); e.stopPropagation(); this.moveBoard(this._bdrag, p); },
+    });
+    const grip = path.length ? React.createElement('span', {
+      draggable:true, 'data-grip':'1',
+      onDragStart:(e)=>{ this._bdrag=path; e.stopPropagation(); try{e.dataTransfer.setData('text/plain','b');}catch(_){ } e.dataTransfer.effectAllowed='move'; },
+      onMouseDown:(e)=>e.stopPropagation(),
+      title:'Перетащить блок',
+      style:{ position:'absolute', top:6, right:8, cursor:'grab', color:'#c4c8d2', fontSize:13, lineHeight:1, letterSpacing:'-2px', userSelect:'none' }
+    }, '⠿') : null;
+
+    if (node && node.elementRow) {
+      const kids = (node.elementRow||[]).map((c,i) => this.renderBoardNode(c, path.concat(['elementRow', i])));
+      return React.createElement('div', Object.assign({ key, 'data-block':'1', onClick: click }, dragProps(path), { style:{
+        position:'relative', border: isDrop ? '1.5px solid '+t.acc : (isSel ? '1.5px dashed '+t.acc : '1.5px dashed #cdd2dc'), borderRadius:9,
+        padding:'22px 11px 11px', display:'flex', gap:11, cursor:'pointer', background: isDrop ? t.accRing : (isSel ? t.accRing : 'transparent'), flex:'1 1 0', minWidth:0 } }),
+        React.createElement('span', { key:'l', style:{ position:'absolute', top:5, left:9, fontSize:10.5, fontWeight:700, color: isSel?t.acc:'#aab0bd' } }, 'elementRow'), grip, kids);
+    }
+    const view = (node && node.view) || 'column';
+    const arr = (node && node.children) || [];
+    const kids = arr.map((c,i) => this.renderBoardNode(c, path.concat(['children', i])));
+    return React.createElement('div', Object.assign({ key, 'data-block':'1', onClick: click }, dragProps(path), { style:{
+      position:'relative', border: isDrop ? '2px solid '+t.acc : (isSel ? '2px solid '+t.acc : '1px solid '+t.border), borderRadius:10,
+      background:'#fff', boxShadow: isSel||isDrop ? '0 0 0 4px '+t.accRing : '0 1px 2px rgba(25,30,55,0.05)',
+      padding:'26px 13px 13px', cursor:'pointer', flex:'1 1 0', minWidth:0, transition:'box-shadow .12s,border-color .12s' } }),
+      React.createElement('span', { key:'l', style:{ position:'absolute', top:7, left:11, fontSize:12, fontWeight:700, color: isSel?t.acc:t.ink } }, (node&&node.elementName)||'element'),
+      node && node.view ? React.createElement('span', { key:'v', style:{ position:'absolute', top:7, right:30, fontSize:10, color:t.muted, background:t.chip, borderRadius:5, padding:'1px 7px', fontWeight:600 } }, (view==='row'?'▤ ':view==='stack'?'▣ ':'▥ ')+view) : null,
+      grip,
+      kids.length ? React.createElement('div', { key:'k', style:{ display:'flex', flexDirection: view==='row'?'row':'column', gap:11, marginTop:3 } }, kids)
+                  : React.createElement('div', { key:'e', style:{ height:34, borderRadius:6, background:'repeating-linear-gradient(45deg,#f2f3f6 0 8px,#fafbfc 8px 16px)' } }));
+  }
+
+  renderTreeRows(node, path, depth, out) {
+    const t = this.theme(), isSel = this.isSel(path), isRow = !!(node && node.elementRow);
+    const kids = isRow ? node.elementRow : (node && node.children) || [];
+    const has = kids && kids.length > 0;
+    const full = isRow ? 'elementRow' : ('elementName — ' + ((node&&node.elementName)||'?'));
+    out.push(React.createElement('div', { key: JSON.stringify(path), title: full, onClick:(e)=>{ e.stopPropagation(); this.selectAndGoto(path); }, style:{
+      display:'flex', alignItems:'center', gap:7, padding:'4px 9px', paddingLeft: 9 + depth*16, borderRadius:7, cursor:'pointer',
+      background: isSel ? t.accSoft : 'transparent', color: isSel ? t.acc : '#3a4050', fontWeight: isSel?600:400, fontSize:13, whiteSpace:'nowrap', overflow:'hidden' } },
+      React.createElement('span', { key:'a', style:{ width:9, flex:'0 0 9px', fontSize:9, color:t.muted } }, has?'▾':''),
+      React.createElement('span', { key:'d', style:{ width:8, height:8, flex:'0 0 8px', borderRadius: isRow?2:'50%', background: isRow?'transparent':(isSel?t.acc:'#c4c8d2'), border: isRow?('1.5px solid '+(isSel?t.acc:'#b6bcca')):'none' } }),
+      React.createElement('span', { key:'t', style:{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, full)));
+    if (has) { const ck = isRow?'elementRow':'children'; kids.forEach((c,i)=>this.renderTreeRows(c, path.concat([ck,i]), depth+1, out)); }
+  }
+
+  // ---- file-tree iconography ----
+  fileTint(name) {
+    const dot = name.lastIndexOf('.');
+    const ext = dot >= 0 ? name.slice(dot + 1).toLowerCase() : '';
+    const map = { json:'#d68a1c', dsl:'#4b5bd6', js:'#caa321', ts:'#2f74c0', md:'#52916b', css:'#3aa0c4', html:'#d9682f', config:'#8893a8', yml:'#8a6fb0', yaml:'#8a6fb0', png:'#7a8aa8', svg:'#cf7bb0' };
+    return map[ext] || '#8893a8';
+  }
+  svgChevron(open, color) {
+    return React.createElement('svg', { key:'cv', width:13, height:13, viewBox:'0 0 16 16',
+      style:{ flex:'0 0 13px', transform: open ? 'rotate(90deg)' : 'none', transition:'transform .14s ease' } },
+      React.createElement('path', { d:'M6.5 4.4L10 8l-3.5 3.6', fill:'none', stroke:color, strokeWidth:1.7, strokeLinecap:'round', strokeLinejoin:'round' }));
+  }
+  svgFolder(open, sel, t) {
+    const base = sel ? t.acc : '#8893a8';
+    const lite = 'color-mix(in srgb, ' + base + ' 60%, #ffffff)';
+    const back = React.createElement('path', { key:'b', d:'M1.5 4.35c0-.62.5-1.12 1.12-1.12h2.46c.32 0 .62.13.82.37l.63.74c.2.24.5.37.82.37h4.81c.62 0 1.12.5 1.12 1.12v5.34c0 .62-.5 1.12-1.12 1.12H2.62c-.62 0-1.12-.5-1.12-1.12z', fill:base });
+    const front = open
+      ? React.createElement('path', { key:'f', d:'M1.5 6.7h13l-.92 4.0c-.12.5-.57.86-1.09.86H2.62c-.62 0-1.12-.5-1.12-1.12z', fill:lite })
+      : React.createElement('path', { key:'f', d:'M1.5 6.05h13v4.5c0 .62-.5 1.12-1.12 1.12H2.62c-.62 0-1.12-.5-1.12-1.12z', fill:lite });
+    return React.createElement('svg', { key:'ic', width:16, height:16, viewBox:'0 0 16 16', style:{ flex:'0 0 16px' } }, back, front);
+  }
+  svgFile(name, sel, t) {
+    const tint = sel ? t.acc : this.fileTint(name);
+    return React.createElement('svg', { key:'ic', width:16, height:16, viewBox:'0 0 16 16', style:{ flex:'0 0 16px' } },
+      React.createElement('path', { key:'b', d:'M4.1 1.8h4.0L12 5.6v7.6c0 .44-.36.8-.8.8H4.1c-.44 0-.8-.36-.8-.8V2.6c0-.44.36-.8.8-.8z', fill:tint }),
+      React.createElement('path', { key:'c', d:'M8.0 1.85v3.0c0 .42.34.76.76.76h3.07z', fill:'rgba(255,255,255,0.42)' }));
+  }
+  renderProjectRows(node, path, depth, out) {
+    const t = this.theme();
+    const isSel = JSON.stringify(this.state.projSel)===JSON.stringify(path);
+    const isFolder = node.type==='folder';
+    const isDrop = JSON.stringify(this.state.dropProj)===JSON.stringify(path);
+    const open = isFolder && node.open;
+    const guides = [];
+    for (let k=0;k<depth;k++) guides.push(React.createElement('span', { key:'g'+k, style:{ position:'absolute', top:0, bottom:0, left:(14.5+k*15), width:1, background: isSel ? 'transparent' : '#e8eaef', pointerEvents:'none' } }));
+    const disc = isFolder
+      ? this.svgChevron(open, isSel ? t.acc : '#aab0bd')
+      : React.createElement('span', { key:'cv', style:{ flex:'0 0 13px' } });
+    const icon = isFolder ? this.svgFolder(open, isSel, t) : this.svgFile(node.name, isSel, t);
+    out.push(React.createElement('div', {
+      key: JSON.stringify(path), draggable:true,
+      onDragStart:(e)=>{ this._pdrag=path; e.stopPropagation(); try{e.dataTransfer.setData('text/plain','p');}catch(_){ } },
+      onDragOver:(e)=>{ e.preventDefault(); if (JSON.stringify(this.state.dropProj)!==JSON.stringify(path)) this.setState({ dropProj:path }); },
+      onDragLeave:()=>{ if (JSON.stringify(this.state.dropProj)===JSON.stringify(path)) this.setState({ dropProj:null }); },
+      onDrop:(e)=>{ e.preventDefault(); e.stopPropagation(); this.moveProject(this._pdrag, path, isFolder); },
+      onClick:(e)=>{ e.stopPropagation(); this.setState({ projSel:path }); if (isFolder) this.toggleFolder(path); else this.openTab(node.name); },
+      onMouseEnter:(e)=>{ if (!isSel && !isDrop) e.currentTarget.style.background = '#f3f4f8'; },
+      onMouseLeave:(e)=>{ if (!isSel && !isDrop) e.currentTarget.style.background = 'transparent'; },
+      style:{ position:'relative', display:'flex', alignItems:'center', gap:6.5, height:25,
+        padding:'0 8px 0 '+(8+depth*15)+'px', borderRadius:6, cursor:'pointer', fontSize:13,
+        background: isDrop ? t.accRing : (isSel ? t.accSoft : 'transparent'),
+        color: isSel ? t.acc : '#39404e', fontWeight: isSel ? 600 : 500,
+        boxShadow: isSel ? 'inset 2.5px 0 0 '+t.acc : (isDrop ? 'inset 0 0 0 1px '+t.acc : 'none'),
+        whiteSpace:'nowrap', overflow:'hidden', transition:'background .1s' } },
+      guides, disc, icon,
+      React.createElement('span', { key:'n', style:{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', letterSpacing:'-0.05px' } }, node.name)));
+    if (isFolder && node.open && node.children) node.children.forEach((c,i)=>this.renderProjectRows(c, path.concat([i]), depth+1, out));
+  }
+
+  renderProps() {
+    const t = this.theme(), path = this.state.selPath, node = this.getNode(this.state.tree, path);
+    const inputStyle = { fontSize:13, border:'1px solid '+t.border, borderRadius:7, padding:'5px 9px', width:128, color:t.ink, background:'#fff', outline:'none' };
+    const row = (label, ctrl) => React.createElement('div', { key:label, style:{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, margin:'8px 0' } }, React.createElement('span',{style:{fontSize:13,color:'#3a4050'}}, label), ctrl);
+    const section = (name) => React.createElement('div', { key:'s_'+name, style:{ fontSize:10.5, fontWeight:700, letterSpacing:0.9, color:t.muted, margin:'17px 0 3px' } }, name);
+    const rootMaker = React.createElement('div', { key:'rootmk', style:{ marginTop: node?22:8 } },
+      React.createElement('div', { style:{ fontSize:10.5, fontWeight:700, letterSpacing:0.9, color:t.muted, marginBottom:7 } }, 'НОВЫЙ КОРНЕВОЙ ЭЛЕМЕНТ'),
+      React.createElement('div', { style:{ display:'flex', gap:8 } },
+        React.createElement('button', { onClick:()=>this.addChild([], 'element'), style:{ flex:1, fontSize:12.5, fontWeight:600, border:'1px solid '+t.border, background:'#f7f8fa', color:'#3a4050', borderRadius:8, padding:'7px 8px', cursor:'pointer' } }, '+ elementName'),
+        React.createElement('button', { onClick:()=>this.addChild([], 'row'), style:{ flex:1, fontSize:12.5, fontWeight:600, border:'1px solid '+t.border, background:'#f7f8fa', color:'#3a4050', borderRadius:8, padding:'7px 8px', cursor:'pointer' } }, '+ elementRow')));
+
+    if (!node) return React.createElement('div', null,
+      React.createElement('div', { style:{ marginTop:24, textAlign:'center', color:t.muted, fontSize:13.5, lineHeight:1.6 } }, 'Ничего не выбрано', React.createElement('div',{style:{fontSize:12.5,marginTop:4,color:'#bcc1cc'}},'кликни блок на доске или в дереве')),
+      React.createElement('div',{style:{borderTop:'1px solid #eef0f3',marginTop:22}}), rootMaker);
+
+    const txt = (k) => React.createElement('input', { value: node[k]==null?'':node[k], onChange:(e)=>this.updateProp(path,k,e.target.value), style:inputStyle });
+    const num = (k) => React.createElement('input', { type:'number', value: node[k]==null?'':node[k], onChange:(e)=>this.updateProp(path,k, e.target.value===''?'':parseInt(e.target.value,10)), style: Object.assign({},inputStyle,{width:84,textAlign:'right'}) });
+    const sel = (k, opts) => React.createElement('select', { value: node[k]==null?'':node[k], onChange:(e)=>this.updateProp(path,k,e.target.value), style:inputStyle }, [React.createElement('option',{key:'_',value:''},'—')].concat(opts.map(o=>React.createElement('option',{key:o,value:o},o))));
+    const beh = node.behavior || {};
+    const tog = (flag) => React.createElement('button', { onClick:()=>this.updateBehavior(path,flag,!beh[flag]), style:{ fontSize:12, fontWeight:600, border:'1px solid '+(beh[flag]?t.acc:t.border), background: beh[flag]?t.acc:'#fff', color: beh[flag]?'#fff':t.muted, borderRadius:20, padding:'3px 14px', cursor:'pointer', minWidth:56 } }, beh[flag]?'вкл':'выкл');
+
+    const head = React.createElement('div', { key:'head', style:{ display:'flex', alignItems:'center', gap:9, paddingBottom:11, borderBottom:'1px solid #eef0f3' } },
+      React.createElement('span', { style:{ width:11, height:11, borderRadius: node.elementRow?3:'50%', background: node.elementRow?'#aab0bd':t.acc } }),
+      React.createElement('span', { style:{ fontSize:15.5, fontWeight:700 } }, this.labelOf(node)),
+      React.createElement('span', { style:{ fontSize:11.5, color:t.muted, background:t.chip, borderRadius:5, padding:'2px 8px', fontWeight:600 } }, node.elementRow?'контейнер-ряд':'элемент'));
+
+    const fields = [];
+    if (node.elementRow) {
+      fields.push(React.createElement('div',{key:'ri',style:{fontSize:13,color:'#3a4050',margin:'14px 0',lineHeight:1.6}}, 'Раскладывает вложенные элементы в ряд.', React.createElement('div',{style:{color:t.muted,marginTop:3}}, node.elementRow.length+' элемент(ов) внутри')));
+    } else {
+      fields.push(section('ЭЛЕМЕНТ'), row('elementName', txt('elementName')), row('id', txt('id')));
+      fields.push(section('VIEW'), row('view', sel('view',['column','row','stack'])), row('padding', num('padding')), row('align', sel('align',['start','center','end','stretch'])));
+      fields.push(section('ITEM'), row('item', txt('item')));
+      fields.push(section('ACTION'), row('action', txt('action')));
+      fields.push(section('BEHAVIOR'), row('scrollable', tog('scrollable')), row('visible', tog('visible')));
+    }
+    const actBtn = (label, onClick, danger) => React.createElement('button', { key:label, onClick, style:{ flex: danger?'0 0 auto':'1 1 0', fontSize:12.5, fontWeight:600, border:'1px solid '+(danger?'#e6b3b3':t.border), background: danger?'#fff':'#f7f8fa', color: danger?'#c0392b':'#3a4050', borderRadius:8, padding:'7px 10px', cursor:'pointer' } }, label);
+    const actions = [ actBtn('+ элемент', ()=>this.addChild(path,'element')) ];
+    if (!node.elementRow) actions.push(actBtn('+ ряд', ()=>this.addChild(path,'row')));
+    const actRow = React.createElement('div', { key:'acts', style:{ display:'flex', gap:8, marginTop:18 } }, actions);
+    const delRow = path && path.length>0 ? React.createElement('div',{key:'del',style:{marginTop:8}}, actBtn('Удалить блок', ()=>this.deleteNode(path), true)) : null;
+
+    return React.createElement('div', null, head, React.createElement('div',{key:'f'},fields), React.createElement('div',{key:'dv',style:{borderTop:'1px solid #eef0f3',marginTop:16}}), actRow, delRow,
+      React.createElement('div',{key:'dv2',style:{borderTop:'1px dashed #eef0f3',marginTop:16}}), rootMaker);
+  }
+
+  // ===== code highlighting =====
+  esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  highlight(code) {
+    const re = /("(?:[^"\\]|\\.)*"\s*:)|("(?:[^"\\]|\\.)*")|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([{}\[\],])/g;
+    let out = '', last = 0, m;
+    while ((m = re.exec(code)) !== null) {
+      out += this.esc(code.slice(last, m.index));
+      if (m[1]) out += '<span style="color:#2a55c4">'+this.esc(m[1])+'</span>';
+      else if (m[2]) out += '<span style="color:#1f8a4f">'+this.esc(m[2])+'</span>';
+      else if (m[3]) out += '<span style="color:#9333a8">'+this.esc(m[3])+'</span>';
+      else if (m[4]) out += '<span style="color:#b5651d">'+this.esc(m[4])+'</span>';
+      else if (m[5]) out += '<span style="color:#aab0bd">'+this.esc(m[5])+'</span>';
+      last = re.lastIndex;
+    }
+    out += this.esc(code.slice(last));
+    return out;
+  }
+  renderCodeEditor() {
+    const t = this.theme(), code = this.state.code, LH = this.LH, PAD = this.PAD;
+    const lineCount = code.split('\n').length;
+    const errLine = this.state.error && this.state.error.line != null ? this.state.error.line - 1 : null;
+    const font = { fontFamily:"'JetBrains Mono',ui-monospace,monospace", fontSize:13, lineHeight: LH+'px' };
+    const nums = [];
+    for (let i=0;i<lineCount;i++) nums.push(React.createElement('div', { key:i, style:{ height:LH, color: i===this.state.activeLine ? t.acc : (i===errLine?'#c0392b':'#bcc1cc'), fontWeight: i===this.state.activeLine?600:400 } }, i+1));
+    const gutter = React.createElement('div', { style:{ flex:'0 0 50px', overflow:'hidden', background:'#fbfbfc', borderRight:'1px solid #eef0f3', position:'relative' } },
+      React.createElement('div', { ref:this.gutInnerRef, style:Object.assign({ position:'absolute', top:PAD, right:10, textAlign:'right', willChange:'transform' }, font) }, nums));
+    const band = React.createElement('div', { key:'band', style:{ position:'absolute', left:0, top: PAD + this.state.activeLine*LH, height:LH, width:'300%', background: errLine===this.state.activeLine ? 'rgba(192,57,43,0.10)' : 'rgba(75,91,214,0.07)' } });
+    const errBand = errLine!=null && errLine!==this.state.activeLine ? React.createElement('div', { key:'eb', style:{ position:'absolute', left:0, top: PAD+errLine*LH, height:LH, width:'300%', background:'rgba(192,57,43,0.10)', borderBottom:'1.5px wavy #c0392b' } }) : null;
+    const pre = React.createElement('pre', { key:'pre', dangerouslySetInnerHTML:{ __html: this.highlight(code) }, style:Object.assign({ margin:0, padding:PAD+'px 14px', whiteSpace:'pre', color:'#2b3142' }, font) });
+    const layer = React.createElement('div', { ref:this.layerRef, style:{ position:'absolute', top:0, left:0, willChange:'transform', pointerEvents:'none' } }, band, errBand, pre);
+    const ta = React.createElement('textarea', { ref:this.taRef, value:code, spellCheck:false,
+      onChange:(e)=>this.handleCodeChange(e.target.value), onScroll:()=>this.onCodeScroll(),
+      onKeyUp:()=>this.syncCaret(), onClick:()=>this.syncCaret(), onSelect:()=>this.syncCaret(),
+      className:'dsl-scroll',
+      style:Object.assign({ position:'absolute', inset:0, width:'100%', height:'100%', border:'none', outline:'none', resize:'none', padding:PAD+'px 14px', background:'transparent', color:'transparent', caretColor:t.ink, whiteSpace:'pre', overflow:'auto' }, font) });
+    const area = React.createElement('div', { style:{ position:'relative', flex:1, minWidth:0, overflow:'hidden' } }, layer, ta);
+    return React.createElement('div', { style:{ display:'flex', height:'100%' } }, gutter, area);
+  }
+
+  theme() {
+    const acc = this.props.accentColor || '#4b5bd6';
+    return { acc, accRing:'rgba(75,91,214,0.16)', accSoft:'#eef1fe', ink:'#1f2430', muted:'#9aa0ad', border:'#e0e3e9', chip:'#f3f4f7' };
+  }
+
+  renderVals() {
+    const t = this.theme(), pct = this.state.boardPct, code = this.state.code;
+    const node = this.getNode(this.state.tree, this.state.selPath);
+    const tree = []; this.renderTreeRows(this.state.tree, [], 0, tree);
+    const proj = []; this.state.project.forEach((n,i)=>this.renderProjectRows(n,[i],0,proj));
+    const userName = this.props.userName || 'designer';
+    const chars = code.length;
+    const err = this.state.error;
+    const tabs = this.state.tabs.map(tab => {
+      const active = tab.id === this.state.activeTab;
+      return React.createElement('div', { key:tab.id, onClick:()=>this.setState({ activeTab:tab.id }), style:{
+        flex:'0 0 auto', fontSize:13, fontWeight: active?600:400, padding:'9px 13px', display:'flex', alignItems:'center', gap:9, cursor:'pointer', whiteSpace:'nowrap',
+        color: active?t.ink:'#9aa0ad', borderBottom:'2px solid '+(active?t.acc:'transparent'), background: active?'#fff':'transparent', marginBottom:'-1px' } },
+        tab.name, React.createElement('span', { onClick:(e)=>this.closeTab(tab.id,e), style:{ color:'#bcc1cc', fontWeight:400 } }, '✕'));
+    });
+
+    return {
+      acc: t.acc,
+      code,
+      boardStyle: { flex:'0 0 calc('+(pct*100).toFixed(1)+'% - 13px)', minHeight:0, display:'grid', gridTemplateRows:'minmax(0,1fr)' },
+      boardViewStyle: { transform:'translate('+this.state.panX+'px,'+this.state.panY+'px) scale('+this.state.zoom+')', transformOrigin:'0 0', width:560, willChange:'transform' },
+      boardZoomLabel: Math.round(this.state.zoom*100)+'%',
+      centerRef: this.centerRef, boardRef: this.boardRef, tabStripRef: this.tabStripRef,
+      onSplitDown:(e)=>this.startSplit(e),
+      onBoardPanDown:(e)=>this.startPan(e),
+      onZoomIn:()=>this.zoomBy(0.1), onZoomOut:()=>this.zoomBy(-0.1), onZoomReset:()=>this.setState({ zoom:1, panX:26, panY:22 }),
+      onMenu:()=>this.setState(s=>({ menuOpen:!s.menuOpen })),
+      onOpenFolder:()=>{ this.setState({ menuOpen:false }); this.flash('Открыть папку…'); },
+      onSave:()=>this.flash('Сохранено ✓'), onRun:()=>this.flash('Запуск… ▶'),
+      onUndo:()=>this.undo(), onRedo:()=>this.redo(),
+      onTabsLeft:()=>this.scrollTabs(-160), onTabsRight:()=>this.scrollTabs(160), onNewTab:()=>this.openTab('untitled'+(this.state.tabs.length+1)+'.dsl'),
+      onNewFolder:()=>this.newProjectItem('folder'), onNewFile:()=>this.newProjectItem('file'),
+      menuOpen: this.state.menuOpen,
+      tabsContent: React.createElement('div',{style:{display:'flex'}},tabs),
+      boardContent: this.renderBoardNode(this.state.tree, []),
+      treeContent: React.createElement('div', null, tree),
+      projectContent: React.createElement('div', null, proj),
+      propsContent: this.renderProps(),
+      codeEditor: this.renderCodeEditor(),
+      codeDotStyle: { width:7, height:7, borderRadius:'50%', display: err?'inline-block':'none', background:'#c0392b' },
+      codeErrStyle: { fontSize:11.5, fontWeight:600, color: err?'#c0392b':'transparent', maxWidth:230, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+      codeErrText: err ? ('⚠ '+(err.line?('строка '+err.line+': '):'')+err.msg) : '',
+      userName, userInitial: userName.charAt(0).toUpperCase(),
+      fileName: this.state.activeTab,
+      lineCount: code.split('\n').length,
+      charCount: chars,
+      tokenCount: Math.max(1, Math.ceil(chars/4)),
+      appVersion: this.props.appVersion || '0.4.0',
+    };
+  }
+}
+</script>
+</body>
+</html>

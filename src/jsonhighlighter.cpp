@@ -118,6 +118,9 @@ void JsonSyntaxHighlighter::highlightBlock(const QString &text)
 JsonHighlighter::JsonHighlighter(QObject *parent)
     : QObject(parent)
 {
+    m_indentTimer.setSingleShot(true);
+    m_indentTimer.setInterval(0);
+    connect(&m_indentTimer, &QTimer::timeout, this, &JsonHighlighter::flushIndent);
 }
 
 void JsonHighlighter::setDocument(QQuickTextDocument *doc)
@@ -198,13 +201,15 @@ void JsonHighlighter::attach()
         QTextDocument *d = m_document->textDocument();
         m_highlighter = new JsonSyntaxHighlighter(d);
         applyColors();
-        // На правки документа — переустановить висячий отступ затронутых блоков.
+        // На правки документа — отложенно переустановить висячий отступ затронутых
+        // блоков (НЕ прямо здесь: правка формата во время установки текста ломает
+        // обновление сцены TextArea — текст не прорисовывается до след. события).
         connect(d, &QTextDocument::contentsChange, this,
                 [this](int position, int charsRemoved, int charsAdded) {
                     Q_UNUSED(charsRemoved);
                     if (m_applyingIndent)
                         return;
-                    applyHangingIndent(position, position + charsAdded);
+                    scheduleIndent(position, position + charsAdded);
                 });
         refreshIndent();
     }
@@ -212,8 +217,33 @@ void JsonHighlighter::attach()
 
 void JsonHighlighter::refreshIndent()
 {
+    // Полный пересчёт тоже откладываем — вызывается при смене шрифта/ширины, может
+    // совпасть с перекладкой текста.
     if (m_document && m_document->textDocument())
-        applyHangingIndent(0, m_document->textDocument()->characterCount());
+        scheduleIndent(0, m_document->textDocument()->characterCount());
+}
+
+void JsonHighlighter::scheduleIndent(int fromPos, int toPos)
+{
+    if (!m_hasPending) {
+        m_pendingFrom = fromPos;
+        m_pendingTo = toPos;
+        m_hasPending = true;
+    } else {
+        m_pendingFrom = qMin(m_pendingFrom, fromPos);
+        m_pendingTo = qMax(m_pendingTo, toPos);
+    }
+    m_indentTimer.start(); // 0мс single-shot — коалесцирует серию правок
+}
+
+void JsonHighlighter::flushIndent()
+{
+    if (!m_hasPending)
+        return;
+    const int from = m_pendingFrom;
+    const int to = m_pendingTo;
+    m_hasPending = false;
+    applyHangingIndent(from, to);
 }
 
 // Переустановить висячий отступ для блоков, попадающих в диапазон [fromPos..toPos].

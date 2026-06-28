@@ -7,6 +7,7 @@
 #include <QSyntaxHighlighter>
 #include <QTextBlock>
 #include <QTextCharFormat>
+#include <QTimer>
 
 // Подсветка синтаксиса JSON для QTextDocument. Однопроходный лексер по строке:
 // строки JSON не переносятся, поэтому корректно работать построчно безопасно.
@@ -81,6 +82,8 @@ signals:
 
 private:
     void attach();
+    void scheduleIndent(int fromPos, int toPos); // отложить применение (см. ниже)
+    void flushIndent();                          // применить накопленный диапазон
     void applyHangingIndent(int fromPos, int toPos);
     void applyToBlock(const QTextBlock &block, qreal spaceWidth);
     void applyColors(); // протолкнуть текущие цвета в подсветчик + rehighlight
@@ -89,6 +92,15 @@ private:
     JsonSyntaxHighlighter       *m_highlighter = nullptr;
     int  m_tabWidth = 2;
     bool m_applyingIndent = false; // защита от рекурсии при правке формата блока
+
+    // Висячий отступ применяется ОТЛОЖЕННО (таймер 0мс), а не прямо в обработчике
+    // contentsChange: иначе правка формата блока идёт во время установки текста
+    // TextArea и ломает обновление сцены (текст не прорисовывается до следующего
+    // события). Диапазон правок копится между срабатываниями.
+    QTimer m_indentTimer;
+    int  m_pendingFrom = 0;
+    int  m_pendingTo = 0;
+    bool m_hasPending = false;
 
     // Цвета по умолчанию совпадают с прежними хардкод-значениями подсветки.
     QColor m_keyColor     {QStringLiteral("#2563eb")};

@@ -240,6 +240,11 @@ PanelFrame {
             root.suppressEdit = false
             flick.contentY = 0
             flick.contentX = 0
+            // Форсируем фокус редактора при переключении вкладки: показывает
+            // каретку и триггерит перерисовку (иначе текст новой вкладки иногда
+            // не прорисовывается до первого взаимодействия).
+            if (Docs.hasDocuments)
+                ta.forceActiveFocus()
         }
     }
 
@@ -544,6 +549,33 @@ PanelFrame {
                 onActiveFocusChanged: if (!activeFocus) root.flushPending()
                 // Каретку увели за край (стрелками/вводом) — подвинуть вьюпорт.
                 onCursorRectangleChanged: root.ensureCursorVisible()
+
+                // Явная мигающая каретка — дефолтная иногда не прорисовывается
+                // до первого ввода. 2px, гаснет/зажигается, при перемещении
+                // сразу показывается (как в обычных редакторах).
+                cursorDelegate: Rectangle {
+                    id: caret
+                    width: 2
+                    height: root.lineHeight
+                    color: Theme.textPrimary
+                    visible: ta.activeFocus && caret.blinkOn
+                    property bool blinkOn: true
+
+                    Timer {
+                        id: blinkTimer
+                        running: ta.activeFocus
+                        repeat: true
+                        interval: 530
+                        onTriggered: caret.blinkOn = !caret.blinkOn
+                    }
+                    Connections {
+                        target: ta
+                        function onCursorPositionChanged() {
+                            caret.blinkOn = true
+                            blinkTimer.restart()
+                        }
+                    }
+                }
 
                 // Enter / Tab обрабатываем сами (авто-отступ, тип табуляции).
                 Keys.onPressed: function (event) {
