@@ -73,8 +73,8 @@ PanelFrame {
         implicitWidth: 26
         implicitHeight: 26
         radius: 6
-        color: hbHover.hovered && hb.btnEnabled ? "#f0f1f4" : "#ffffff"
-        border.color: hb.btnEnabled ? "#e6e8ed" : Theme.borderSoft
+        color: hbHover.hovered && hb.btnEnabled ? Theme.hover : Theme.bgPanel
+        border.color: hb.btnEnabled ? Theme.border : Theme.borderSoft
         border.width: 1
         opacity: hb.btnEnabled ? 1.0 : 0.45
 
@@ -84,7 +84,7 @@ PanelFrame {
             antialiasing: true
             // Силуэт: документ для newFile, иначе папка.
             ShapePath {
-                fillColor: "#9aa0ad"; strokeWidth: 0
+                fillColor: Theme.textFaint; strokeWidth: 0
                 PathSvg {
                     path: hb.kind === "newFile"
                         ? "M4.1 1.8h4.0L12 5.6v7.6c0 .44-.36.8-.8.8H4.1c-.44 0-.8-.36-.8-.8V2.6c0-.44.36-.8.8-.8z"
@@ -293,15 +293,15 @@ PanelFrame {
             model: Project.model
             rootIndex: Project.projectRootIndex
 
-            // Токены дизайна (design_handoff_file_tree).
-            readonly property color accent:          "#4b5bd6"
-            readonly property color accSoft:         "#eef1fe"
-            readonly property color accRing:         Qt.rgba(75/255, 91/255, 214/255, 0.16)
-            readonly property color rowText:         "#39404e"
-            readonly property color chevronInactive: "#aab0bd"
-            readonly property color hoverBg:         "#f3f4f8"
-            readonly property color guideColor:      "#e8eaef"
-            readonly property color folderBase:      "#8893a8"
+            // Токены дизайна (design_handoff_file_tree) — теперь тема-зависимые.
+            readonly property color accent:          Theme.accent
+            readonly property color accSoft:         Theme.accentSoft
+            readonly property color accRing:         Theme.accentRing
+            readonly property color rowText:         Theme.textPrimary
+            readonly property color chevronInactive: Theme.textGhost
+            readonly property color hoverBg:         Theme.hover
+            readonly property color guideColor:      Theme.editorGuide
+            readonly property color folderBase:      Theme.treeFolder
 
             // Выделение / переименование / drop.
             property string selectedPath: ""

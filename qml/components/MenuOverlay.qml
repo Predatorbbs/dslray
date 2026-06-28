@@ -75,9 +75,10 @@ Item {
 
         property int selectedIndex: 0
         readonly property var sections: [
+            { title: "Пользователь", hint: "Имя, почта и аватар профиля" },
             { title: "Проект",      hint: "Открытие, создание и настройки проекта" },
             { title: "Редактор кода", hint: "Режим записи изменений в файл" },
-            { title: "Внешний вид", hint: "Цветовая схема подсветки кода" },
+            { title: "Внешний вид", hint: "Темы оформления и цвета подсветки кода" },
             { title: "О программе", hint: "Версия и сведения о DSLRay" }
         ]
 
@@ -162,7 +163,7 @@ Item {
                     // «О программе» рисует собственную шапку (иконка + название),
                     // поэтому стандартный заголовок раздела для неё скрыт.
                     Text {
-                        visible: popup.selectedIndex !== 3
+                        visible: popup.selectedIndex !== 4
                         text: popup.sections[popup.selectedIndex].title
                         font.family: Theme.fontSans
                         font.pixelSize: 20
@@ -170,7 +171,7 @@ Item {
                         color: Theme.textPrimary
                     }
                     Text {
-                        visible: popup.selectedIndex !== 3
+                        visible: popup.selectedIndex !== 4
                         text: popup.sections[popup.selectedIndex].hint
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
@@ -179,9 +180,112 @@ Item {
                         color: Theme.textMuted
                     }
 
+                    // ── Раздел «Пользователь» — имя, почта, аватар ────────
+                    ColumnLayout {
+                        visible: popup.selectedIndex === 0
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: 16
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 16
+
+                            // Превью аватара (картинка или инициал).
+                            Rectangle {
+                                width: 64; height: 64; radius: 32
+                                color: Theme.accent
+                                clip: true
+                                border.color: Theme.border; border.width: 1
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: Docs.avatarPath == ""
+                                    text: Docs.userName.length > 0 ? Docs.userName.charAt(0).toUpperCase() : "—"
+                                    color: Theme.accentFg
+                                    font.family: Theme.fontSans
+                                    font.pixelSize: 26
+                                    font.weight: Font.Bold
+                                }
+                                Image {
+                                    anchors.fill: parent
+                                    visible: Docs.avatarPath != ""
+                                    source: Docs.avatarPath
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true; mipmap: true
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                RowLayout {
+                                    spacing: 8
+                                    DlgBtn { label: "Сменить аватар"; onClicked: avatarDlg.open() }
+                                    DlgBtn {
+                                        label: "Убрать"
+                                        visible: Docs.avatarPath != ""
+                                        onClicked: Docs.avatarPath = ""
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+                                Text {
+                                    text: "PNG/JPG · отображается в статус-баре"
+                                    font.family: Theme.fontSans
+                                    font.pixelSize: Theme.fontPanelHeader
+                                    color: Theme.textFaint
+                                }
+                            }
+                        }
+
+                        // Имя
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 5
+                            Text {
+                                text: "Имя"
+                                font.family: Theme.fontSans
+                                font.pixelSize: Theme.fontPanelHeader
+                                font.weight: Font.Medium
+                                color: Theme.textMuted
+                            }
+                            UserField {
+                                text: Docs.userName
+                                placeholderText: "Ваше имя"
+                                onCommitted: function (v) { Docs.userName = v }
+                            }
+                        }
+
+                        // Почта
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 5
+                            Text {
+                                text: "Почта"
+                                font.family: Theme.fontSans
+                                font.pixelSize: Theme.fontPanelHeader
+                                font.weight: Font.Medium
+                                color: Theme.textMuted
+                            }
+                            UserField {
+                                text: Docs.userEmail
+                                placeholderText: "name@example.com"
+                                onCommitted: function (v) { Docs.userEmail = v }
+                            }
+                        }
+
+                        Item { Layout.fillHeight: true }
+
+                        FileDialog {
+                            id: avatarDlg
+                            title: "Выберите аватар"
+                            nameFilters: ["Изображения (*.png *.jpg *.jpeg *.webp *.bmp)"]
+                            onAccepted: Docs.avatarPath = avatarDlg.selectedFile
+                        }
+                    }
+
                     // Раздел «Редактор кода» — переключатель режима записи.
                     ColumnLayout {
-                        visible: popup.selectedIndex === 1
+                        visible: popup.selectedIndex === 2
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         spacing: 12
@@ -299,13 +403,27 @@ Item {
                     // ── Раздел «О программе» ──────────────────────────────
                     ColumnLayout {
                         id: about
-                        visible: popup.selectedIndex === 3
+                        visible: popup.selectedIndex === 4
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         spacing: 16
 
                         // История версий. Свежие — сверху.
                         readonly property var changelog: [
+                            {
+                                ver: "0.3",
+                                tag: "DeepAlpha",
+                                date: "июнь 2026",
+                                items: [
+                                    "Тёмная тема и переключатель в тулбаре; реактивная система тем.",
+                                    "Раздел «Настройки тем» с превью светлой и тёмной темы.",
+                                    "Обновлённый тулбар: логотип приложения и кнопка меню.",
+                                    "Вкладки в новом стиле – акцентное подчёркивание активной.",
+                                    "Раздел «Пользователь»: имя, почта и аватар (виден в статус-баре).",
+                                    "Живые счётчики строк, символов и токенов активного файла.",
+                                    "Видимая мигающая каретка и надёжная прогрузка текста вкладок."
+                                ]
+                            },
                             {
                                 ver: "0.2",
                                 tag: "DeepAlpha",
@@ -385,7 +503,7 @@ Item {
                                         Text {
                                             id: verText
                                             anchors.centerIn: parent
-                                            text: "Версия 0.2"
+                                            text: "Версия 0.3"
                                             font.family: Theme.fontSans
                                             font.pixelSize: Theme.fontPanelHeader
                                             font.weight: Font.DemiBold
@@ -531,12 +649,59 @@ Item {
                         }
                     }
 
-                    // ── Раздел «Внешний вид» — цвета подсветки кода ───────
+                    // ── Раздел «Внешний вид» — темы + цвета подсветки кода ─
                     ColumnLayout {
-                        visible: popup.selectedIndex === 2
+                        visible: popup.selectedIndex === 3
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         spacing: 12
+
+                        // Карточка «Настройки тем» — выбор темы оформления.
+                        // Сюда же добавляются новые темы помимо светлой/тёмной.
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.rSmall
+                            color: Theme.bgSubtle
+                            border.color: Theme.borderSoft
+                            border.width: 1
+                            implicitHeight: themeCol.implicitHeight + 24
+
+                            ColumnLayout {
+                                id: themeCol
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 12
+                                spacing: 10
+
+                                Text {
+                                    text: "Настройки тем"
+                                    font.family: Theme.fontSans
+                                    font.pixelSize: Theme.fontContent
+                                    font.weight: Font.DemiBold
+                                    color: Theme.textPrimary
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    ThemeCard {
+                                        label: "Светлая"
+                                        themeId: "light"
+                                        swatchBg: "#ffffff"
+                                        swatchPanel: "#f1f3f6"
+                                        swatchAccent: "#4b5bd6"
+                                    }
+                                    ThemeCard {
+                                        label: "Тёмная"
+                                        themeId: "dark"
+                                        swatchBg: "#15171c"
+                                        swatchPanel: "#1e2128"
+                                        swatchAccent: "#7080f0"
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+                            }
+                        }
 
                         // Карточка «Внешний вид кода».
                         Rectangle {
@@ -602,7 +767,8 @@ Item {
 
                     // Прочие разделы — заглушка.
                     Rectangle {
-                        visible: popup.selectedIndex !== 1 && popup.selectedIndex !== 2 && popup.selectedIndex !== 3
+                        visible: popup.selectedIndex !== 0 && popup.selectedIndex !== 2
+                                 && popup.selectedIndex !== 3 && popup.selectedIndex !== 4
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: Theme.rSmall
@@ -761,6 +927,77 @@ Item {
         }
         HoverHandler { id: crHover }
         TapHandler { onTapped: cr.toggled() }
+    }
+
+    component UserField: TextField {
+        id: uf
+        signal committed(string value)
+        Layout.fillWidth: true
+        implicitHeight: 34
+        font.family: Theme.fontSans
+        font.pixelSize: Theme.fontContent
+        color: Theme.textPrimary
+        placeholderTextColor: Theme.textGhost
+        selectByMouse: true
+        leftPadding: 10; rightPadding: 10
+        background: Rectangle {
+            radius: Theme.rSmall
+            color: Theme.bgPanel
+            border.color: uf.activeFocus ? Theme.accent : Theme.border
+            border.width: 1
+        }
+        onEditingFinished: uf.committed(uf.text)
+    }
+
+    component ThemeCard: Rectangle {
+        id: tc
+        property string label: ""
+        property string themeId: "light"
+        property color swatchBg: "#ffffff"
+        property color swatchPanel: "#f1f3f6"
+        property color swatchAccent: "#4b5bd6"
+        readonly property bool active: Docs.themeId === tc.themeId
+
+        implicitWidth: 124
+        implicitHeight: 70
+        radius: Theme.rSmall
+        color: tc.active ? Theme.accentSoft : (tcHover.hovered ? Theme.hover : Theme.bgPanel)
+        border.color: tc.active ? Theme.accent : Theme.border
+        border.width: tc.active ? 2 : 1
+
+        Column {
+            anchors.fill: parent
+            anchors.margins: 8
+            spacing: 6
+            // Мини-превью окна темы.
+            Rectangle {
+                width: parent.width
+                height: 30
+                radius: 4
+                color: tc.swatchBg
+                border.color: Theme.border
+                border.width: 1
+                Row {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    spacing: 4
+                    Rectangle { width: 22; height: parent.height; radius: 3; color: tc.swatchPanel }
+                    Rectangle { width: parent.width - 22 - 4; height: parent.height; radius: 3; color: tc.swatchPanel
+                        Rectangle { x: 4; y: 4; width: 26; height: 4; radius: 2; color: tc.swatchAccent }
+                        Rectangle { x: 4; y: 12; width: 40; height: 3; radius: 2; color: tc.swatchAccent; opacity: 0.4 }
+                    }
+                }
+            }
+            Text {
+                text: tc.label
+                font.family: Theme.fontSans
+                font.pixelSize: Theme.fontContent
+                font.weight: tc.active ? Font.DemiBold : Font.Normal
+                color: tc.active ? Theme.accent : Theme.textPrimary
+            }
+        }
+        HoverHandler { id: tcHover }
+        TapHandler { onTapped: Docs.themeId = tc.themeId }
     }
 
     component ColorRow: RowLayout {

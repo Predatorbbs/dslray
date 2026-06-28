@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     QGuiApplication::setApplicationDisplayName("DSLRay");
     QGuiApplication::setOrganizationName("DSLRay");
     QGuiApplication::setOrganizationDomain("dslray.local");
-    QGuiApplication::setApplicationVersion("0.2.0");
+    QGuiApplication::setApplicationVersion("0.3.0");
 
     // Иконка окна / панели задач из встроенных ресурсов (см. dslray_icons.qrc).
     QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/icons/dslray_icon.png")));

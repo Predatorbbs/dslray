@@ -1,10 +1,10 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import DSLRay
 
-// Верхний тулбар (строка меню). На этом шаге — только кнопка-бургер слева,
-// открывающая всплывающее меню (см. MenuOverlay), и индикатор автосинхронизации
-// справа. Остальные действия переедут внутрь попапа-меню.
+// Верхний тулбар. Слева — логотип приложения и кнопка-бургер (одного размера и
+// скругления), открывающая всплывающее меню. Справа — переключатель тёмной темы.
 Rectangle {
     id: root
     height: Theme.toolbarHeight
@@ -30,15 +30,43 @@ Rectangle {
         anchors.rightMargin: 14
         spacing: 8
 
+        // Логотип — иконка приложения, того же размера/скругления, что и кнопки.
+        Rectangle {
+            Layout.preferredWidth: Theme.toolBtnSize
+            Layout.preferredHeight: Theme.toolBtnSize
+            radius: Theme.rButton
+            color: "transparent"
+            clip: true
+            Image {
+                anchors.fill: parent
+                anchors.margins: 1
+                source: "qrc:/icons/dslray_icon.png"
+                sourceSize.width: 96
+                sourceSize.height: 96
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
+            }
+        }
+
         // ☰ кнопка меню — открывает всплывающее меню приложения.
         ToolBtn {
-            glyph: "☰"          // ☰
+            glyph: "☰"
             glyphSize: 16
             active: root.menuActive
             onClicked: root.menuClicked()
         }
 
         Item { Layout.fillWidth: true }
+
+        // Переключатель тёмной темы (☾ — включить тёмную, ☀ — вернуть светлую).
+        ToolBtn {
+            glyph: Theme.dark ? "☀" : "☾"
+            glyphSize: 15
+            glyphColor: Theme.dark ? Theme.warn : Theme.textMuted
+            tooltip: Theme.dark ? "Светлая тема" : "Тёмная тема"
+            onClicked: Docs.themeId = Theme.dark ? "light" : "dark"
+        }
     }
 
     // ─────────────── вспомогательные inline-компоненты ───────────────
@@ -49,13 +77,14 @@ Rectangle {
         property int    glyphSize: 16
         property color  glyphColor: Theme.textPrimary
         property bool   active: false
+        property string tooltip: ""
         signal clicked()
 
         width: Theme.toolBtnSize
         height: Theme.toolBtnSize
         radius: Theme.rButton
-        color: tb.active ? Qt.alpha(Theme.accent, 0.12)
-                         : (hover.hovered ? "#f4f5f8" : Theme.bgPanel)
+        color: tb.active ? Theme.accentSoft
+                         : (hover.hovered ? Theme.hover : Theme.bgPanel)
         border.color: tb.active ? Theme.accent : Theme.border
         border.width: 1
 
@@ -68,5 +97,9 @@ Rectangle {
         }
         HoverHandler { id: hover }
         TapHandler { onTapped: tb.clicked() }
+
+        ToolTip.visible: tb.tooltip.length > 0 && hover.hovered
+        ToolTip.text: tb.tooltip
+        ToolTip.delay: 500
     }
 }

@@ -141,12 +141,35 @@ projecttreemodel.cpp moc_*.cpp -lQt6Core`. Так проверялись move/re
   шлёт `objectActivated(offset)` → `codeEditor.gotoOffset()` (скроллит объект к верху).
   Подсветка «пройденных» завязана на `codeEditor.topOffset`.
 
+## Темы оформления (светлая / тёмная)
+
+- `qml/theme/Theme.qml` — синглтон с **реактивными** цветами: `property string id` ("light"|"dark"),
+  `readonly property bool dark`. Каждый цвет = тернарник `dark ? <тёмн> : <светл>`. **Имена токенов
+  одинаковы в обеих темах**, поэтому весь UI перекрашивается сам (компоненты читают `Theme.xxx`).
+- `id` выставляется владельцем: в `Main.qml` — `Binding { target: Theme; property: "id"; value: Docs.themeId }`.
+  Синглтон-`Theme` **не видит** контекст-свойства (`Docs`) сам — поэтому связывает Main, а не Theme.
+- Хранится в `Docs.themeId` (QSettings `appearance/theme`). Переключатель — в тулбаре справа.
+  Под новые темы: добавить ветку в тернарники Theme + карточку в «Настройки тем» (MenuOverlay).
+- При добавлении цвета в UI — **класть его токеном в Theme** (с обоими значениями), а не хардкодить,
+  иначе тёмная тема сломается на этом месте. Новые токены: `accentSoft/accentRing/hover/hoverStrong/
+  editorSelection/treeFolder/canvasDot`.
+- Цвета подсветки кода (`Docs.color*`) — **общие для обеих тем** (пользовательские), не тема-зависимые.
+
+## Профиль и статус-бар
+
+- `Docs.userName/userEmail/avatarPath` (QSettings `user/*`) — раздел «Пользователь» в меню (верхний).
+  Аватар выбирается `FileDialog`, путь хранится как `file://`-URL; в статус-баре — `Image` или кружок
+  с инициалом.
+- Счётчики статус-бара **живые**: `CodeEditor` отдаёт `liveLines/liveChars/liveTokens` (токены ≈
+  символы/4), `Main` прокидывает их в `StatusBar`. Не хардкодить значения в StatusBar.
+
 ## Настройки (QSettings)
 
 Бэкенд — реестр `HKCU\Software\DSLRay\DSLRay` (org/app = DSLRay/DSLRay). Ключи:
 `session/projectPath`, `session/openFiles`, `session/activePath`,
 `editor/safeMode`, `editor/wordWrap`, `editor/codeFontSize`, `editor/indentWidth` (1…8),
-`editor/indentUseTabs`, `project/confirmDelete`.
+`editor/indentUseTabs`, `editor/color*` (5 цветов подсветки),
+`appearance/theme`, `user/name`, `user/email`, `user/avatar`, `project/confirmDelete`.
 Сессия (проект + вкладки) восстанавливается в `main.cpp::restoreSession` после загрузки QML.
 
 ## Дизайн

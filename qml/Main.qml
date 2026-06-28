@@ -28,6 +28,9 @@ ApplicationWindow {
 
     color: Theme.bgApp
 
+    // Тема оформления приходит из настроек (Docs.themeId) — выставляем синглтону.
+    Binding { target: Theme; property: "id"; value: Docs.themeId }
+
     // Шрифт по умолчанию — Segoe UI на Windows.
     font.family: Theme.fontSans
     font.pixelSize: Theme.fontContent
@@ -183,6 +186,10 @@ ApplicationWindow {
         // ── Статус-бар ────────────────────────────────────────────
         StatusBar {
             Layout.fillWidth: true
+            fileName:   Docs.hasDocuments ? Docs.activeName : ""
+            lineCount:  codeEditor.liveLines
+            charCount:  codeEditor.liveChars
+            tokenCount: codeEditor.liveTokens
         }
     }
 

@@ -20,6 +20,13 @@ DocumentController::DocumentController(QObject *parent)
     m_indentWidth = qBound(1, s.value(QStringLiteral("editor/indentWidth"), 2).toInt(), 8);
     m_indentUseTabs = s.value(QStringLiteral("editor/indentUseTabs"), false).toBool();
 
+    m_themeId = s.value(QStringLiteral("appearance/theme"), QStringLiteral("light")).toString();
+    if (m_themeId != QLatin1String("dark") && m_themeId != QLatin1String("light"))
+        m_themeId = QStringLiteral("light");
+    m_userName = s.value(QStringLiteral("user/name"), QStringLiteral("designer")).toString();
+    m_userEmail = s.value(QStringLiteral("user/email")).toString();
+    m_avatarPath = s.value(QStringLiteral("user/avatar")).toString();
+
     const auto readColor = [&s](const QString &key, const QColor &def) {
         const QColor c(s.value(key, def.name()).toString());
         return c.isValid() ? c : def;
@@ -29,6 +36,43 @@ DocumentController::DocumentController(QObject *parent)
     m_colorNumber  = readColor(QStringLiteral("editor/colorNumber"),  m_colorNumber);
     m_colorKeyword = readColor(QStringLiteral("editor/colorKeyword"), m_colorKeyword);
     m_colorPunct   = readColor(QStringLiteral("editor/colorPunct"),   m_colorPunct);
+}
+
+void DocumentController::setThemeId(const QString &id)
+{
+    const QString v = (id == QLatin1String("dark")) ? QStringLiteral("dark") : QStringLiteral("light");
+    if (m_themeId == v)
+        return;
+    m_themeId = v;
+    QSettings().setValue(QStringLiteral("appearance/theme"), v);
+    emit themeIdChanged();
+}
+
+void DocumentController::setUserName(const QString &name)
+{
+    if (m_userName == name)
+        return;
+    m_userName = name;
+    QSettings().setValue(QStringLiteral("user/name"), name);
+    emit userChanged();
+}
+
+void DocumentController::setUserEmail(const QString &email)
+{
+    if (m_userEmail == email)
+        return;
+    m_userEmail = email;
+    QSettings().setValue(QStringLiteral("user/email"), email);
+    emit userChanged();
+}
+
+void DocumentController::setAvatarPath(const QString &path)
+{
+    if (m_avatarPath == path)
+        return;
+    m_avatarPath = path;
+    QSettings().setValue(QStringLiteral("user/avatar"), path);
+    emit userChanged();
 }
 
 void DocumentController::setColorKey(const QColor &c)

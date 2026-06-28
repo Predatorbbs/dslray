@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Layouts
 import DSLRay
 
-// Нижняя строка состояния. На шаге 1 — все значения захардкожены.
+// Нижняя строка состояния. Профиль (аватар/имя) берётся из настроек (Docs),
+// счётчики строк/символов/токенов — живые, приходят из редактора через Main.
 Rectangle {
     id: root
     height: Theme.statusHeight
@@ -17,14 +18,17 @@ Rectangle {
         color: Theme.divider
     }
 
-    // Захардкоженные значения — заменим на реальные после шагов 4–6.
-    property string userName:    "designer"
-    property string userInitial: "D"
-    property string fileName:    "main.dsl"
-    property int    lineCount:   42
-    property int    charCount:   1180
-    property int    tokenCount:  340
-    property string appVersion:  "0.2.0"
+    // Профиль — из настроек пользователя.
+    readonly property string userName:    Docs.userName.length > 0 ? Docs.userName : "—"
+    readonly property string userInitial: userName.charAt(0).toUpperCase()
+    readonly property url    avatarUrl:   Docs.avatarPath
+
+    // Счётчики активного файла (живые) — задаются владельцем (Main).
+    property string fileName:    ""
+    property int    lineCount:   0
+    property int    charCount:   0
+    property int    tokenCount:  0
+    property string appVersion:  "0.3.0"
 
     RowLayout {
         anchors.fill: parent
@@ -36,17 +40,29 @@ Rectangle {
         Row {
             spacing: 7
             Layout.alignment: Qt.AlignVCenter
+
+            // Аватар: загруженная картинка или кружок с инициалом.
             Rectangle {
                 width: 18; height: 18; radius: 9
                 color: Theme.accent
+                clip: true
                 anchors.verticalCenter: parent.verticalCenter
                 Text {
                     anchors.centerIn: parent
+                    visible: root.avatarUrl == ""
                     text: root.userInitial
                     color: Theme.accentFg
                     font.family: Theme.fontSans
                     font.pixelSize: 10
                     font.weight: Font.Bold
+                }
+                Image {
+                    anchors.fill: parent
+                    visible: root.avatarUrl != ""
+                    source: root.avatarUrl
+                    fillMode: Image.PreserveAspectCrop
+                    smooth: true
+                    mipmap: true
                 }
             }
             Text {
@@ -60,7 +76,7 @@ Rectangle {
 
         VSep {}
 
-        StatusText { text: root.fileName }
+        StatusText { text: root.fileName; color: Theme.textMuted }
 
         Item { Layout.fillWidth: true }
 

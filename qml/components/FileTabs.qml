@@ -90,14 +90,19 @@ Rectangle {
             Rectangle {
                 id: bg
                 anchors.fill: parent
-                anchors.topMargin: 4
-                anchors.bottomMargin: -1   // «съезжает» на нижнюю линию
+                // Активная вкладка — фон-панель + нижнее акцентное подчёркивание
+                // (стиль из дизайн-хэндоффа), неактивная — прозрачная/ховер.
                 color: tab.active ? Theme.bgPanel
-                                  : (tabHover.hovered ? "#eef0f3" : "transparent")
-                border.color: tab.active ? Theme.border : "transparent"
-                border.width: 1
-                topLeftRadius: 8
-                topRightRadius: 8
+                                  : (tabHover.hovered ? Theme.hover : "transparent")
+
+                // Акцентная полоса снизу у активной вкладки.
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 2
+                    color: tab.active ? Theme.accent : "transparent"
+                }
 
                 HoverHandler { id: tabHover }
 
@@ -112,6 +117,7 @@ Rectangle {
                         text: tab.name
                         font.family: Theme.fontSans
                         font.pixelSize: Theme.fontTabs
+                        font.weight: tab.active ? Font.DemiBold : Font.Normal
                         color: tab.active ? Theme.textPrimary : Theme.textMuted
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -119,7 +125,7 @@ Rectangle {
                     // ✕ / точка несохранённых изменений
                     Rectangle {
                         width: 17; height: 17; radius: 5
-                        color: closeHover.hovered ? "#e3e6ec" : "transparent"
+                        color: closeHover.hovered ? Theme.hoverStrong : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
 
                         Text {
@@ -169,7 +175,7 @@ Rectangle {
             anchors.centerIn: parent
             width: 22; height: 22
             radius: Theme.rSmall
-            color: edgeHover.hovered ? "#e3e6ec" : Theme.bgPanel
+            color: edgeHover.hovered ? Theme.hoverStrong : Theme.bgPanel
             border.color: Theme.border
             border.width: 1
             Text {

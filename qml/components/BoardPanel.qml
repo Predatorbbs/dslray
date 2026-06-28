@@ -50,10 +50,13 @@ PanelFrame {
         Canvas {
             id: grid
             anchors.fill: parent
+            // Перерисовать точки при смене темы.
+            property color dotColor: Theme.canvasDot
+            onDotColorChanged: requestPaint()
             onPaint: {
                 const ctx = getContext("2d");
                 ctx.clearRect(0, 0, width, height);
-                ctx.fillStyle = "#dfe2e8";
+                ctx.fillStyle = grid.dotColor;
                 const step = 18;
                 const r = 1.1;
                 for (let y = step / 2; y < height; y += step) {

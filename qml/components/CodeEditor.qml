@@ -60,6 +60,12 @@ PanelFrame {
     readonly property int richLimitChars: 200000
     readonly property bool richEnabled: ta.length <= root.richLimitChars
 
+    // Живые счётчики активного файла — для статус-бара. Токены ≈ символы/4
+    // (грубая эвристика, как в прототипе).
+    readonly property int liveChars:  Docs.hasDocuments ? ta.length : 0
+    readonly property int liveLines:  Docs.hasDocuments ? (root.lineStarts ? root.lineStarts.length : 1) : 0
+    readonly property int liveTokens: Docs.hasDocuments ? Math.max(1, Math.ceil(ta.length / 4)) : 0
+
     // Символьное смещение начала строки, идущей сразу под верхом видимой
     // области — для подсветки «пройденных» объектов в «Структуре».
     readonly property int topOffset: (ta.length, ta.positionAt(ta.leftPadding + 2, flick.contentY + root.lineHeight + 2))
@@ -535,8 +541,8 @@ PanelFrame {
                 font.family: Theme.fontMono
                 font.pixelSize: Docs.codeFontSize
                 color: Theme.textPrimary
-                // Мягкое серо-голубое выделение, текст остаётся тёмным.
-                selectionColor: "#d7dbe6"
+                // Мягкое выделение (тема-зависимое), текст остаётся читаемым.
+                selectionColor: Theme.editorSelection
                 selectedTextColor: Theme.textPrimary
                 leftPadding: 8
                 topPadding: 6

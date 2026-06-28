@@ -37,6 +37,12 @@ class DocumentController : public QAbstractListModel
     Q_PROPERTY(int indentWidth READ indentWidth WRITE setIndentWidth NOTIFY indentWidthChanged)
     // true — отступы табами ('\t'), false — пробелами. Хранится в QSettings.
     Q_PROPERTY(bool indentUseTabs READ indentUseTabs WRITE setIndentUseTabs NOTIFY indentUseTabsChanged)
+    // Тема оформления: "light" | "dark". Хранится в QSettings.
+    Q_PROPERTY(QString themeId READ themeId WRITE setThemeId NOTIFY themeIdChanged)
+    // Профиль пользователя (имя/почта/аватар) — для статус-бара и раздела «Пользователь».
+    Q_PROPERTY(QString userName READ userName WRITE setUserName NOTIFY userChanged)
+    Q_PROPERTY(QString userEmail READ userEmail WRITE setUserEmail NOTIFY userChanged)
+    Q_PROPERTY(QString avatarPath READ avatarPath WRITE setAvatarPath NOTIFY userChanged)
     // Цвета подсветки JSON (внешний вид кода). Хранятся в QSettings как hex-имена.
     Q_PROPERTY(QColor colorKey READ colorKey WRITE setColorKey NOTIFY colorsChanged)
     Q_PROPERTY(QColor colorString READ colorString WRITE setColorString NOTIFY colorsChanged)
@@ -74,6 +80,15 @@ public:
     void setIndentWidth(int width);
     bool indentUseTabs() const { return m_indentUseTabs; }
     void setIndentUseTabs(bool on);
+
+    QString themeId() const { return m_themeId; }
+    void setThemeId(const QString &id);
+    QString userName() const { return m_userName; }
+    void setUserName(const QString &name);
+    QString userEmail() const { return m_userEmail; }
+    void setUserEmail(const QString &email);
+    QString avatarPath() const { return m_avatarPath; }
+    void setAvatarPath(const QString &path);
 
     QColor colorKey() const { return m_colorKey; }
     void setColorKey(const QColor &c);
@@ -129,6 +144,8 @@ signals:
     void indentWidthChanged();
     void indentUseTabsChanged();
     void colorsChanged();
+    void themeIdChanged();
+    void userChanged();
     // Содержимое активного документа заменено программно (например, отброс
     // черновика) — редактору нужно перечитать текст даже без смены пути.
     void activeContentReset();
@@ -152,6 +169,11 @@ private:
     int  m_codeFontSize = 14;
     int  m_indentWidth = 2;
     bool m_indentUseTabs = false;
+
+    QString m_themeId = QStringLiteral("light");
+    QString m_userName = QStringLiteral("designer");
+    QString m_userEmail;
+    QString m_avatarPath;
 
     // Цвета подсветки (по умолчанию — как в JsonSyntaxHighlighter).
     QColor m_colorKey     {QStringLiteral("#2563eb")};
