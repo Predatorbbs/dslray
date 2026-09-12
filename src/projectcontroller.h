@@ -54,6 +54,7 @@ public:
     void setConfirmDelete(bool on);
 
 signals:
+    void fileOperationRequested();
     void rootPathChanged();
     void errorOccurred(const QString &message);
     void confirmDeleteChanged();

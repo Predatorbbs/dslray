@@ -65,7 +65,7 @@ Rectangle {
             glyphSize: 15
             glyphColor: Theme.dark ? Theme.warn : Theme.textMuted
             tooltip: Theme.dark ? "Светлая тема" : "Тёмная тема"
-            onClicked: Docs.themeId = Theme.dark ? "light" : "dark"
+            onClicked: Preferences.themeId = Theme.dark ? "light" : "dark"
         }
     }
 

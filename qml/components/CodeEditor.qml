@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import DSLRay
+import "EditorText.js" as EditorText
 
 // Панель «КОД» — редактор активного документа.
 // Возможности: показ содержимого, нумерация строк, подсветка синтаксиса JSON,
@@ -10,6 +11,7 @@ import DSLRay
 // форматирование отступов всего документа, переход к объекту из «Структуры».
 PanelFrame {
     id: root
+    objectName: "codeEditor"
     title: "КОД"
     subtitle: Docs.hasDocuments ? Docs.activeName : ""
 
@@ -71,97 +73,16 @@ PanelFrame {
     readonly property int topOffset: (ta.length, ta.positionAt(ta.leftPadding + 2, flick.contentY + root.lineHeight + 2))
 
     // Смещения начал логических строк (для нумерации, корректной при переносе).
-    property var lineStarts: computeLineStarts(ta.text)
-    function computeLineStarts(t) {
-        var arr = [0]
-        for (var i = 0; i < t.length; ++i)
-            if (t.charCodeAt(i) === 10) arr.push(i + 1)
-        return arr
-    }
+    readonly property var lineStarts: EditorText.lineStarts(ta.text)
 
-    // ── Разбор скобок/строк: парные скобки + ошибки ──────────────────────
-    // Возвращает { pairs, errors }: pairs — карта offset↔offset парных скобок,
-    // errors — массив смещений проблемных символов (лишняя/незакрытая скобка,
-    // несовпадение типа, незакрытая строка). Один проход, с учётом строк JSON.
-    property var analysis: root.richEnabled ? analyze(ta.text) : ({ pairs: ({}), errors: [] })
-    function analyze(text) {
-        var pairs = ({})
-        var errors = []
-        var stack = []
-        var inStr = false, esc = false, strStart = -1
-        for (var i = 0; i < text.length; ++i) {
-            var ch = text.charAt(i)
-            if (inStr) {
-                if (esc) { esc = false; continue }
-                if (ch === '\\') { esc = true; continue }
-                if (ch === '"') inStr = false
-                continue
-            }
-            if (ch === '"') { inStr = true; strStart = i; continue }
-            if (ch === '{' || ch === '[') {
-                stack.push(i)
-            } else if (ch === '}' || ch === ']') {
-                if (stack.length === 0) {
-                    errors.push(i)
-                } else {
-                    var open = stack.pop()
-                    var oc = text.charAt(open)
-                    if ((oc === '{' && ch === '}') || (oc === '[' && ch === ']')) {
-                        pairs[open] = i
-                        pairs[i] = open
-                    } else {
-                        errors.push(i); errors.push(open)
-                    }
-                }
-            }
-        }
-        for (var s = 0; s < stack.length; ++s)
-            errors.push(stack[s])
-        if (inStr && strStart >= 0)
-            errors.push(strStart)
-        return { pairs: pairs, errors: errors }
-    }
-
-    // ── Помощники для отступов ───────────────────────────────────────────
-    function spaces(n) { return n > 0 ? Array(n + 1).join(" ") : "" }
-    function repeatStr(s, n) { var r = ""; for (var i = 0; i < n; ++i) r += s; return r }
-
-    // Перевыставить отступы всего документа по глубине вложенности скобок.
-    // Учитывает строки JSON (скобки внутри "" не меняют глубину). Строка,
-    // начинающаяся с закрывающей скобки, печатается на уровень левее.
-    function reindentText(text) {
-        var unit = Docs.indentUseTabs ? "\t" : root.spaces(Docs.indentWidth)
-        var lines = text.split("\n")
-        var depth = 0
-        var res = []
-        for (var li = 0; li < lines.length; ++li) {
-            var content = lines[li].replace(/^[ \t]+/, "").replace(/[ \t]+$/, "")
-            if (content.length === 0) { res.push(""); continue }
-            var lead = content.charAt(0)
-            var d = depth
-            if (lead === '}' || lead === ']') d = Math.max(0, depth - 1)
-            res.push(root.repeatStr(unit, d) + content)
-            var inStr = false, esc = false
-            for (var ci = 0; ci < content.length; ++ci) {
-                var ch = content.charAt(ci)
-                if (inStr) {
-                    if (esc) esc = false
-                    else if (ch === '\\') esc = true
-                    else if (ch === '"') inStr = false
-                    continue
-                }
-                if (ch === '"') { inStr = true; continue }
-                if (ch === '{' || ch === '[') depth++
-                else if (ch === '}' || ch === ']') depth = Math.max(0, depth - 1)
-            }
-        }
-        return res.join("\n")
-    }
+    // Разбор скобок/строк зависит только от текста, а не от каретки/прокрутки.
+    readonly property var analysis: root.richEnabled ? EditorText.analyze(ta.text)
+                                                     : ({ pairs: ({}), errors: [] })
 
     function formatDocument() {
         if (!Docs.hasDocuments)
             return
-        var formatted = root.reindentText(ta.text)
+        var formatted = EditorText.reindent(ta.text, Preferences.indentWidth, Preferences.indentUseTabs)
         if (formatted === ta.text)
             return
         var pos = ta.cursorPosition
@@ -175,56 +96,21 @@ PanelFrame {
         if (ta.selectedText.length > 0)
             ta.remove(ta.selectionStart, ta.selectionEnd)
         var pos = ta.cursorPosition
-        var text = ta.text
-        var ls = text.lastIndexOf("\n", pos - 1) + 1
-        var indent = ""
-        for (var i = ls; i < text.length; ++i) {
-            var c = text.charAt(i)
-            if (c === ' ' || c === '\t') indent += c
-            else break
-        }
-        var before = pos > 0 ? text.charAt(pos - 1) : ''
-        var after = pos < text.length ? text.charAt(pos) : ''
-        var unit = Docs.indentUseTabs ? "\t" : root.spaces(Docs.indentWidth)
-
-        if ((before === '{' && after === '}') || (before === '[' && after === ']')) {
-            var inner = indent + unit
-            var ins = "\n" + inner + "\n" + indent
-            ta.insert(pos, ins)
-            ta.cursorPosition = pos + 1 + inner.length
-        } else if (before === '{' || before === '[') {
-            var inner2 = indent + unit
-            var ins2 = "\n" + inner2
-            ta.insert(pos, ins2)
-            ta.cursorPosition = pos + ins2.length
-        } else {
-            var ins3 = "\n" + indent
-            ta.insert(pos, ins3)
-            ta.cursorPosition = pos + ins3.length
-        }
+        var edit = EditorText.newlineEdit(ta.text, pos, Preferences.indentWidth, Preferences.indentUseTabs)
+        ta.insert(pos, edit.text)
+        ta.cursorPosition = edit.cursor
     }
 
-    // Tab вставляет отступ согласно настройке (таб или добивка пробелами до
-    // следующей колонки-кратной ширине отступа).
+    // Вставку выполняет TextArea: сохраняем обычную историю undo/redo.
     function insertTab() {
-        var pos = ta.cursorPosition
-        if (Docs.indentUseTabs) {
-            ta.insert(pos, "\t")
-            return
-        }
-        var text = ta.text
-        var ls = text.lastIndexOf("\n", pos - 1) + 1
-        var col = pos - ls
-        var w = Docs.indentWidth
-        var n = w - (col % w)
-        if (n === 0) n = w
-        ta.insert(pos, root.spaces(n))
+        ta.insert(ta.cursorPosition, EditorText.tabText(ta.text, ta.cursorPosition,
+                                                      Preferences.indentWidth, Preferences.indentUseTabs))
     }
 
     FontMetrics {
         id: fm
         font.family: Theme.fontMono
-        font.pixelSize: Docs.codeFontSize
+        font.pixelSize: Preferences.codeFontSize
     }
 
     function reload() {
@@ -292,7 +178,7 @@ PanelFrame {
             flick.contentY = Math.max(0, r.y)
         else if (r.y + r.height > flick.contentY + flick.height)
             flick.contentY = Math.min(maxY, r.y + r.height - flick.height)
-        if (!Docs.wordWrap) {
+        if (!Preferences.wordWrap) {
             const maxX = Math.max(0, ta.width - flick.width)
             const m = root.charWidth * 2
             if (r.x < flick.contentX)
@@ -305,6 +191,7 @@ PanelFrame {
     Connections {
         target: Docs
         function onActiveChanged() { root.reload() }
+        function onFlushRequested() { root.flushPending() }
         // Содержимое заменено программно (отброс черновика) — перечитать текст
         // даже если путь не менялся.
         function onActiveContentReset() {
@@ -328,11 +215,12 @@ PanelFrame {
     // ── Редактор ──────────────────────────────────────────────────────
     Item {
         id: editor
+        objectName: "editor"
         anchors.fill: parent
         visible: Docs.hasDocuments
 
         // Текущая логическая строка каретки (для подсветки номера в гаттере).
-        readonly property int caretLine: ta.text.substring(0, ta.cursorPosition).split("\n").length - 1
+        readonly property int caretLine: EditorText.lineAt(root.lineStarts, ta.cursorPosition)
         // По числу ЛОГИЧЕСКИХ строк (lineStarts) — не зависит от ширины/переноса,
         // иначе цикл биндингов gutterWidth ↔ ta.lineCount ↔ ta.width.
         readonly property int gutterWidth:
@@ -341,7 +229,7 @@ PanelFrame {
 
         // Прямоугольник всей текущей логической строки (включая перенос).
         readonly property rect curLineRect: {
-            var _ = [ta.cursorPosition, ta.text, ta.width, Docs.wordWrap, Docs.codeFontSize]
+            var _ = [ta.cursorPosition, ta.text, ta.width, Preferences.wordWrap, Preferences.codeFontSize]
             var cl = editor.caretLine
             if (!root.lineStarts || cl < 0 || cl >= root.lineStarts.length)
                 return Qt.rect(0, 0, 0, 0)
@@ -363,6 +251,18 @@ PanelFrame {
             return null
         }
 
+        // Only instantiate line-number items around the viewport. Wrapped rows
+        // still map to their logical line through the same cached offsets.
+        readonly property int firstVisibleLine: {
+            var dependencies = [ta.text, ta.width, ta.height, Preferences.wordWrap, Preferences.codeFontSize]
+            return Math.max(0, EditorText.lineAt(root.lineStarts,
+                ta.positionAt(ta.leftPadding, flick.contentY)) - 1)
+        }
+        readonly property int lastVisibleLine: {
+            var dependencies = [ta.text, ta.width, ta.height, Preferences.wordWrap, Preferences.codeFontSize]
+            return Math.min(root.lineStarts.length - 1, EditorText.lineAt(root.lineStarts,
+                ta.positionAt(ta.leftPadding, flick.contentY + flick.height)) + 1)
+        }
         // Гаттер с номерами строк.
         Rectangle {
             id: gutter
@@ -386,19 +286,21 @@ PanelFrame {
                 y: -flick.contentY
 
                 Repeater {
-                    model: root.lineStarts ? root.lineStarts.length : 1
+                    objectName: "lineNumbers"
+                    model: Math.max(0, editor.lastVisibleLine - editor.firstVisibleLine + 1)
                     delegate: Text {
                         required property int index
+                        readonly property int logicalLine: editor.firstVisibleLine + index
                         // Позиция логической строки (учитывает перенос).
-                        y: ta.positionToRectangle(root.lineStarts[index]).y
+                        y: ta.positionToRectangle(root.lineStarts[logicalLine]).y
                         width: gutter.width - 8
                         height: root.lineHeight
                         horizontalAlignment: Text.AlignRight
                         verticalAlignment: Text.AlignVCenter
-                        text: index + 1
+                        text: logicalLine + 1
                         font.family: Theme.fontMono
-                        font.pixelSize: Docs.codeFontSize
-                        color: index === editor.caretLine ? Theme.accent : Theme.textGhost
+                        font.pixelSize: Preferences.codeFontSize
+                        color: logicalLine === editor.caretLine ? Theme.accent : Theme.textGhost
                     }
                 }
             }
@@ -413,21 +315,10 @@ PanelFrame {
             renderStrategy: Canvas.Cooperative
 
             property var paintDeps: [root.lineStarts, ta.width, ta.text,
-                Docs.codeFontSize, Docs.wordWrap, Docs.indentWidth,
-                flick.contentY, flick.height, root.richEnabled, editor.matchPair]
+                Preferences.codeFontSize, Preferences.wordWrap, Preferences.indentWidth,
+                flick.contentY, flick.height, root.richEnabled, editor.matchPair,
+                Theme.editorGuide, Theme.accent]
             onPaintDepsChanged: requestPaint()
-
-            // Ведущая глубина отступа строки (начиная со смещения off) в «стопах».
-            function indentStops(txt, off, t) {
-                var cols = 0
-                for (var j = off; j < txt.length; ++j) {
-                    var ch = txt.charAt(j)
-                    if (ch === ' ') cols++
-                    else if (ch === '\t') cols += t
-                    else break
-                }
-                return Math.floor(cols / t)
-            }
 
             onPaint: {
                 var ctx = getContext("2d")
@@ -435,7 +326,7 @@ PanelFrame {
                 if (!root.richEnabled)
                     return
                 var sw = fm.advanceWidth("0")
-                var t = Docs.indentWidth
+                var t = Preferences.indentWidth
                 var lp = ta.leftPadding
                 var top = flick.contentY
                 var bottom = top + flick.height
@@ -447,14 +338,18 @@ PanelFrame {
                 // ── Обычные направляющие вложений ─────────────────────────
                 ctx.strokeStyle = Theme.editorGuide
                 ctx.lineWidth = 1
-                for (var i = 0; i < ls.length; ++i) {
+                // Начинаем с видимой строки (и соседней сверху для её границы),
+                // не запрашивая геометрию всех строк до текущего скролла.
+                var topPosition = ta.positionAt(lp, top)
+                var firstLine = Math.max(0, EditorText.lineAt(ls, topPosition) - 1)
+                for (var i = firstLine; i < ls.length; ++i) {
                     var startOff = ls[i]
                     var y0 = ta.positionToRectangle(startOff).y
                     var y1 = (i + 1 < ls.length) ? ta.positionToRectangle(ls[i + 1]).y
                                                  : (y0 + root.lineHeight)
                     if (y1 < top) continue
                     if (y0 > bottom) break
-                    var stops = guideCanvas.indentStops(txt, startOff, t)
+                    var stops = EditorText.indentStops(txt, startOff, t)
                     for (var k = 1; k <= stops; ++k) {
                         var x = Math.round(lp + k * t * sw) + 0.5
                         ctx.beginPath()
@@ -474,13 +369,8 @@ PanelFrame {
                     // Линия идёт от начала текста строки открывающей скобки:
                     // если скобка одна на строке — от неё самой; если перед ней
                     // был текст — от его начала.
-                    var lineA = txt.lastIndexOf("\n", a - 1) + 1
-                    var fnw = lineA
-                    while (fnw < txt.length) {
-                        var wc = txt.charAt(fnw)
-                        if (wc === ' ' || wc === '\t') fnw++
-                        else break
-                    }
+                    var lineA = ls[EditorText.lineAt(ls, a)]
+                    var fnw = EditorText.firstContent(txt, lineA)
                     var gx = Math.round(ta.positionToRectangle(fnw).x) + 0.5
                     var ra = ta.positionToRectangle(a)
                     var rb = ta.positionToRectangle(b)
@@ -523,7 +413,7 @@ PanelFrame {
                         const maxY = Math.max(0, ta.height - flick.height)
                         flick.contentY = Math.max(0, Math.min(flick.contentY - (dy / 120) * stepY, maxY))
                     }
-                    if (dx !== 0 && !Docs.wordWrap) {
+                    if (dx !== 0 && !Preferences.wordWrap) {
                         const maxX = Math.max(0, ta.width - flick.width)
                         flick.contentX = Math.max(0, Math.min(flick.contentX - (dx / 120) * stepY, maxX))
                     }
@@ -533,13 +423,14 @@ PanelFrame {
 
             TextArea {
                 id: ta
-                width: Docs.wordWrap ? flick.width : Math.max(implicitWidth, flick.width)
+                objectName: "ta"
+                width: Preferences.wordWrap ? flick.width : Math.max(implicitWidth, flick.width)
                 height: Math.max(implicitHeight, flick.height)
-                wrapMode: Docs.wordWrap ? TextArea.Wrap : TextArea.NoWrap
+                wrapMode: Preferences.wordWrap ? TextArea.Wrap : TextArea.NoWrap
                 selectByMouse: true
                 persistentSelection: true
                 font.family: Theme.fontMono
-                font.pixelSize: Docs.codeFontSize
+                font.pixelSize: Preferences.codeFontSize
                 color: Theme.textPrimary
                 // Мягкое выделение (тема-зависимое), текст остаётся читаемым.
                 selectionColor: Theme.editorSelection
@@ -547,7 +438,7 @@ PanelFrame {
                 leftPadding: 8
                 topPadding: 6
                 bottomPadding: 6
-                tabStopDistance: fm.advanceWidth("0") * Docs.indentWidth
+                tabStopDistance: fm.advanceWidth("0") * Preferences.indentWidth
 
                 // Пользовательская правка — запустить дебаунс записи.
                 onTextChanged: if (!root.suppressEdit) editTimer.restart()
@@ -612,7 +503,7 @@ PanelFrame {
                         delegate: Rectangle {
                             required property var modelData
                             property rect rr: {
-                                var _ = [ta.width, ta.text, Docs.wordWrap, Docs.codeFontSize]
+                                var _ = [ta.width, ta.text, Preferences.wordWrap, Preferences.codeFontSize]
                                 return ta.positionToRectangle(modelData)
                             }
                             x: rr.x
@@ -632,7 +523,7 @@ PanelFrame {
                         delegate: Item {
                             required property var modelData
                             property rect rr: {
-                                var _ = [ta.width, ta.text, Docs.wordWrap, Docs.codeFontSize]
+                                var _ = [ta.width, ta.text, Preferences.wordWrap, Preferences.codeFontSize]
                                 return ta.positionToRectangle(modelData)
                             }
                             x: rr.x
@@ -658,17 +549,17 @@ PanelFrame {
                 JsonHighlighter {
                     id: jsonHl
                     document: ta.textDocument
-                    tabWidth: Docs.indentWidth
-                    keyColor: Docs.colorKey
-                    stringColor: Docs.colorString
-                    numberColor: Docs.colorNumber
-                    keywordColor: Docs.colorKeyword
-                    punctColor: Docs.colorPunct
+                    tabWidth: Preferences.indentWidth
+                    keyColor: Preferences.colorKey
+                    stringColor: Preferences.colorString
+                    numberColor: Preferences.colorNumber
+                    keywordColor: Preferences.colorKeyword
+                    punctColor: Preferences.colorPunct
                 }
                 // Размер шрифта меняет ширину пробела в пикселях — пересчитать
                 // висячий отступ переноса после применения нового шрифта.
                 Connections {
-                    target: Docs
+                    target: Preferences
                     function onCodeFontSizeChanged() { Qt.callLater(jsonHl.refreshIndent) }
                 }
             }

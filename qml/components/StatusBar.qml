@@ -19,9 +19,9 @@ Rectangle {
     }
 
     // Профиль — из настроек пользователя.
-    readonly property string userName:    Docs.userName.length > 0 ? Docs.userName : "—"
+    readonly property string userName:    Preferences.userName.length > 0 ? Preferences.userName : "—"
     readonly property string userInitial: userName.charAt(0).toUpperCase()
-    readonly property url    avatarUrl:   Docs.avatarPath
+    readonly property url    avatarUrl:   Preferences.avatarPath
 
     // Счётчики активного файла (живые) — задаются владельцем (Main).
     property string fileName:    ""

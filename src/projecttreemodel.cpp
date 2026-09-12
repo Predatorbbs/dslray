@@ -1,6 +1,7 @@
 #include "projecttreemodel.h"
 
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 
@@ -131,11 +132,10 @@ bool ProjectTreeModel::isHiddenName(const QString &name)
 
 bool ProjectTreeModel::dirHasVisibleEntries(const QString &path)
 {
-    QDir dir(path);
-    const QFileInfoList list =
-        dir.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot, QDir::NoSort);
-    for (const QFileInfo &fi : list) {
-        if (!isHiddenName(fi.fileName()))
+    QDirIterator entries(path, QDir::AllEntries | QDir::NoDotAndDotDot);
+    while (entries.hasNext()) {
+        entries.next();
+        if (!isHiddenName(entries.fileName()))
             return true;
     }
     return false;
@@ -253,10 +253,43 @@ QModelIndex ProjectTreeModel::indexForPath(const QString &path) const
 
 // ── Операции ─────────────────────────────────────────────────────────────
 
+bool ProjectTreeModel::validateName(const QString &name)
+{
+    if (name.isEmpty())
+        return false;
+    if (name == QLatin1String(".") || name == QLatin1String("..")) {
+        emit errorOccurred(tr("Имя не должно быть '.' или '..'"));
+        return false;
+    }
+    if (name.contains(QLatin1Char('/')) || name.contains(QLatin1Char('\\'))) {
+        emit errorOccurred(tr("Имя не должно содержать разделителей пути"));
+        return false;
+    }
+    return true;
+}
+
+void ProjectTreeModel::insertChild(const QString &parentPath, const QString &name, bool isDir)
+{
+    TreeNode *parent = findNode(parentPath);
+    if (!parent || !parent->populated)
+        return; // незаполненная папка прочитает новый элемент с диска
+
+    auto *child = new TreeNode;
+    child->name = name;
+    child->path = QDir::cleanPath(QDir(parentPath).filePath(name));
+    child->isDir = isDir;
+    child->populated = true; // новый файл или пустая папка
+    child->parent = parent;
+    const int pos = sortedInsertPos(parent, name, isDir);
+    beginInsertRows(indexForNode(parent), pos, pos);
+    parent->children.insert(pos, child);
+    endInsertRows();
+}
+
 bool ProjectTreeModel::createFolder(const QString &parentPath, const QString &name)
 {
     const QString trimmed = name.trimmed();
-    if (trimmed.isEmpty())
+    if (!validateName(trimmed))
         return false;
     QDir parent(parentPath);
     if (!parent.exists()) {
@@ -272,26 +305,14 @@ bool ProjectTreeModel::createFolder(const QString &parentPath, const QString &na
         return false;
     }
 
-    TreeNode *pNode = findNode(parentPath);
-    if (pNode && pNode->populated) {
-        auto *child = new TreeNode;
-        child->name = trimmed;
-        child->path = QDir::cleanPath(parent.filePath(trimmed));
-        child->isDir = true;
-        child->populated = true; // только что создана — пустая
-        child->parent = pNode;
-        const int pos = sortedInsertPos(pNode, trimmed, true);
-        beginInsertRows(indexForNode(pNode), pos, pos);
-        pNode->children.insert(pos, child);
-        endInsertRows();
-    }
+    insertChild(parentPath, trimmed, true);
     return true;
 }
 
 bool ProjectTreeModel::createFile(const QString &parentPath, const QString &name)
 {
     const QString trimmed = name.trimmed();
-    if (trimmed.isEmpty())
+    if (!validateName(trimmed))
         return false;
     QDir parent(parentPath);
     if (!parent.exists()) {
@@ -310,19 +331,7 @@ bool ProjectTreeModel::createFile(const QString &parentPath, const QString &name
     }
     f.close();
 
-    TreeNode *pNode = findNode(parentPath);
-    if (pNode && pNode->populated) {
-        auto *child = new TreeNode;
-        child->name = trimmed;
-        child->path = QDir::cleanPath(full);
-        child->isDir = false;
-        child->populated = true;
-        child->parent = pNode;
-        const int pos = sortedInsertPos(pNode, trimmed, false);
-        beginInsertRows(indexForNode(pNode), pos, pos);
-        pNode->children.insert(pos, child);
-        endInsertRows();
-    }
+    insertChild(parentPath, trimmed, false);
     return true;
 }
 
@@ -332,12 +341,8 @@ QString ProjectTreeModel::renameItem(const QString &path, const QString &newName
     if (!info.exists())
         return {};
     const QString trimmed = newName.trimmed();
-    if (trimmed.isEmpty() || trimmed == info.fileName())
+    if (!validateName(trimmed) || trimmed == info.fileName())
         return {};
-    if (trimmed.contains(QLatin1Char('/')) || trimmed.contains(QLatin1Char('\\'))) {
-        emit errorOccurred(tr("Имя не должно содержать разделителей пути"));
-        return {};
-    }
     const QString newPath = QDir::cleanPath(QDir(info.absolutePath()).filePath(trimmed));
     if (QFile::exists(newPath)) {
         emit errorOccurred(tr("Элемент '%1' уже существует").arg(trimmed));
@@ -427,6 +432,11 @@ QString ProjectTreeModel::moveItem(const QString &sourcePath, const QString &tar
         return {};
     }
 
+    // A rowsAboutToBeRemoved observer may expand the destination after the
+    // disk rename. In that case populate() already includes the moved entry.
+    TreeNode *targetNode = findNode(dstClean);
+    const bool targetWasPopulated = targetNode && targetNode->populated;
+
     bool ok = srcInfo.isDir() ? QDir().rename(srcInfo.absoluteFilePath(), newPath)
                               : QFile(srcInfo.absoluteFilePath()).rename(newPath);
     if (!ok) {
@@ -445,8 +455,7 @@ QString ProjectTreeModel::moveItem(const QString &sourcePath, const QString &tar
 
         // …и вставляем в целевую папку, если она уже раскрыта; иначе узел
         // будет прочитан с диска при её раскрытии.
-        TreeNode *targetNode = findNode(dstClean);
-        if (targetNode && targetNode->populated) {
+        if (targetWasPopulated) {
             node->parent = targetNode;
             rebasePaths(node, newPath);
             const int pos = sortedInsertPos(targetNode, node->name, node->isDir);

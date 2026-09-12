@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSettings>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QTextStream>
@@ -12,161 +13,8 @@
 
 DocumentController::DocumentController(QObject *parent)
     : QAbstractListModel(parent)
+    , m_safeMode(QSettings().value(QStringLiteral("editor/safeMode"), false).toBool())
 {
-    QSettings s;
-    m_safeMode = s.value(QStringLiteral("editor/safeMode"), false).toBool();
-    m_wordWrap = s.value(QStringLiteral("editor/wordWrap"), false).toBool();
-    m_codeFontSize = qBound(14, s.value(QStringLiteral("editor/codeFontSize"), 14).toInt(), 32);
-    m_indentWidth = qBound(1, s.value(QStringLiteral("editor/indentWidth"), 2).toInt(), 8);
-    m_indentUseTabs = s.value(QStringLiteral("editor/indentUseTabs"), false).toBool();
-
-    m_themeId = s.value(QStringLiteral("appearance/theme"), QStringLiteral("light")).toString();
-    if (m_themeId != QLatin1String("dark") && m_themeId != QLatin1String("light"))
-        m_themeId = QStringLiteral("light");
-    m_userName = s.value(QStringLiteral("user/name"), QStringLiteral("designer")).toString();
-    m_userEmail = s.value(QStringLiteral("user/email")).toString();
-    m_avatarPath = s.value(QStringLiteral("user/avatar")).toString();
-
-    const auto readColor = [&s](const QString &key, const QColor &def) {
-        const QColor c(s.value(key, def.name()).toString());
-        return c.isValid() ? c : def;
-    };
-    m_colorKey     = readColor(QStringLiteral("editor/colorKey"),     m_colorKey);
-    m_colorString  = readColor(QStringLiteral("editor/colorString"),  m_colorString);
-    m_colorNumber  = readColor(QStringLiteral("editor/colorNumber"),  m_colorNumber);
-    m_colorKeyword = readColor(QStringLiteral("editor/colorKeyword"), m_colorKeyword);
-    m_colorPunct   = readColor(QStringLiteral("editor/colorPunct"),   m_colorPunct);
-}
-
-void DocumentController::setThemeId(const QString &id)
-{
-    const QString v = (id == QLatin1String("dark")) ? QStringLiteral("dark") : QStringLiteral("light");
-    if (m_themeId == v)
-        return;
-    m_themeId = v;
-    QSettings().setValue(QStringLiteral("appearance/theme"), v);
-    emit themeIdChanged();
-}
-
-void DocumentController::setUserName(const QString &name)
-{
-    if (m_userName == name)
-        return;
-    m_userName = name;
-    QSettings().setValue(QStringLiteral("user/name"), name);
-    emit userChanged();
-}
-
-void DocumentController::setUserEmail(const QString &email)
-{
-    if (m_userEmail == email)
-        return;
-    m_userEmail = email;
-    QSettings().setValue(QStringLiteral("user/email"), email);
-    emit userChanged();
-}
-
-void DocumentController::setAvatarPath(const QString &path)
-{
-    if (m_avatarPath == path)
-        return;
-    m_avatarPath = path;
-    QSettings().setValue(QStringLiteral("user/avatar"), path);
-    emit userChanged();
-}
-
-void DocumentController::setColorKey(const QColor &c)
-{
-    if (!c.isValid() || m_colorKey == c) return;
-    m_colorKey = c;
-    QSettings().setValue(QStringLiteral("editor/colorKey"), c.name());
-    emit colorsChanged();
-}
-
-void DocumentController::setColorString(const QColor &c)
-{
-    if (!c.isValid() || m_colorString == c) return;
-    m_colorString = c;
-    QSettings().setValue(QStringLiteral("editor/colorString"), c.name());
-    emit colorsChanged();
-}
-
-void DocumentController::setColorNumber(const QColor &c)
-{
-    if (!c.isValid() || m_colorNumber == c) return;
-    m_colorNumber = c;
-    QSettings().setValue(QStringLiteral("editor/colorNumber"), c.name());
-    emit colorsChanged();
-}
-
-void DocumentController::setColorKeyword(const QColor &c)
-{
-    if (!c.isValid() || m_colorKeyword == c) return;
-    m_colorKeyword = c;
-    QSettings().setValue(QStringLiteral("editor/colorKeyword"), c.name());
-    emit colorsChanged();
-}
-
-void DocumentController::setColorPunct(const QColor &c)
-{
-    if (!c.isValid() || m_colorPunct == c) return;
-    m_colorPunct = c;
-    QSettings().setValue(QStringLiteral("editor/colorPunct"), c.name());
-    emit colorsChanged();
-}
-
-void DocumentController::resetColors()
-{
-    m_colorKey     = QColor(QStringLiteral("#2563eb"));
-    m_colorString  = QColor(QStringLiteral("#2a9d5c"));
-    m_colorNumber  = QColor(QStringLiteral("#b5651d"));
-    m_colorKeyword = QColor(QStringLiteral("#8b5cf6"));
-    m_colorPunct   = QColor(QStringLiteral("#7a818f"));
-    QSettings s;
-    s.setValue(QStringLiteral("editor/colorKey"),     m_colorKey.name());
-    s.setValue(QStringLiteral("editor/colorString"),  m_colorString.name());
-    s.setValue(QStringLiteral("editor/colorNumber"),  m_colorNumber.name());
-    s.setValue(QStringLiteral("editor/colorKeyword"), m_colorKeyword.name());
-    s.setValue(QStringLiteral("editor/colorPunct"),   m_colorPunct.name());
-    emit colorsChanged();
-}
-
-void DocumentController::setIndentWidth(int width)
-{
-    const int clamped = qBound(1, width, 8);
-    if (m_indentWidth == clamped)
-        return;
-    m_indentWidth = clamped;
-    QSettings().setValue(QStringLiteral("editor/indentWidth"), clamped);
-    emit indentWidthChanged();
-}
-
-void DocumentController::setIndentUseTabs(bool on)
-{
-    if (m_indentUseTabs == on)
-        return;
-    m_indentUseTabs = on;
-    QSettings().setValue(QStringLiteral("editor/indentUseTabs"), on);
-    emit indentUseTabsChanged();
-}
-
-void DocumentController::setWordWrap(bool on)
-{
-    if (m_wordWrap == on)
-        return;
-    m_wordWrap = on;
-    QSettings().setValue(QStringLiteral("editor/wordWrap"), on);
-    emit wordWrapChanged();
-}
-
-void DocumentController::setCodeFontSize(int size)
-{
-    const int clamped = qBound(14, size, 32);
-    if (m_codeFontSize == clamped)
-        return;
-    m_codeFontSize = clamped;
-    QSettings().setValue(QStringLiteral("editor/codeFontSize"), clamped);
-    emit codeFontSizeChanged();
 }
 
 void DocumentController::closePath(const QString &path)
@@ -237,6 +85,7 @@ void DocumentController::setActiveIndex(int index)
         return;
     if (index < -1 || index >= m_docs.size())
         return;
+    emit flushRequested();
     m_active = index;
     emit activeIndexChanged();
     emit activeChanged();
@@ -268,14 +117,16 @@ void DocumentController::openFile(const QString &path)
     OpenDocument doc;
     doc.path = norm;
     doc.name = info.fileName();
-    doc.content = readFile(norm);
+    if (!readFile(norm, doc.content))
+        return;
 
     // В «Безопасном режиме» при наличии черновика показываем его, а вкладку
     // помечаем изменённой.
     if (m_safeMode) {
         const QString draft = draftPathFor(norm);
         if (QFile::exists(draft)) {
-            doc.content = readFile(draft);
+            if (!readFile(draft, doc.content))
+                return;
             doc.modified = true;
         }
     }
@@ -298,6 +149,7 @@ void DocumentController::closeAt(int index)
     if (index < 0 || index >= m_docs.size())
         return;
 
+    emit flushRequested();
     beginRemoveRows({}, index, index);
     m_docs.removeAt(index);
     endRemoveRows();
@@ -320,41 +172,46 @@ void DocumentController::handlePathRenamed(const QString &oldPath, const QString
 {
     const QString from = normalize(oldPath);
     const QString to = normalize(newPath);
-    const int idx = indexOfPath(from);
-    if (idx < 0)
+    if (from.isEmpty() || to.isEmpty() || from == to)
         return;
-
-    m_docs[idx].path = to;
-    m_docs[idx].name = baseName(to);
-
-    const QModelIndex mi = index(idx, 0);
-    emit dataChanged(mi, mi, { PathRole, NameRole });
-    if (idx == m_active)
+    const QString prefix = from + QLatin1Char('/');
+    bool changed = false;
+    for (int i = 0; i < m_docs.size(); ++i) {
+        OpenDocument &doc = m_docs[i];
+        if (doc.path != from && !doc.path.startsWith(prefix))
+            continue;
+        const QString previousPath = doc.path;
+        doc.path = to + doc.path.mid(from.size());
+        doc.name = baseName(doc.path);
+        if (doc.modified && writeTextToFile(draftPathFor(doc.path), doc.content))
+            deleteDraft(previousPath);
+        const QModelIndex mi = index(i, 0);
+        emit dataChanged(mi, mi, { PathRole, NameRole });
+        changed = true;
+    }
+    if (changed) {
         emit activeChanged();
-    persist();
+        persist();
+    }
 }
 
 void DocumentController::applyEdit(const QString &text)
 {
-    if (m_active < 0 || m_active >= m_docs.size())
-        return;
-    if (m_docs.at(m_active).content == text)
-        return;
-    m_docs[m_active].content = text;
-    commitContent(m_active);
-    emit activeChanged(); // «Структура» перечитается
+    editAt(m_active, text);
 }
 
 void DocumentController::flushEdit(const QString &path, const QString &text)
 {
-    const int i = indexOfPath(normalize(path));
-    if (i < 0)
+    editAt(indexOfPath(normalize(path)), text);
+}
+
+void DocumentController::editAt(int index, const QString &text)
+{
+    if (index < 0 || index >= m_docs.size() || m_docs.at(index).content == text)
         return;
-    if (m_docs.at(i).content == text)
-        return;
-    m_docs[i].content = text;
-    commitContent(i);
-    if (i == m_active)
+    m_docs[index].content = text;
+    commitContent(index);
+    if (index == m_active)
         emit activeChanged();
 }
 
@@ -362,15 +219,11 @@ void DocumentController::flushEdit(const QString &path, const QString &text)
 // «изменён»), в «Прозрачном» — сразу в оригинал.
 void DocumentController::commitContent(int index)
 {
-    if (index < 0 || index >= m_docs.size())
-        return;
-    if (m_safeMode) {
-        writeTextToFile(draftPathFor(m_docs.at(index).path), m_docs.at(index).content);
-        setModified(index, true);
-    } else {
-        writeTextToFile(m_docs.at(index).path, m_docs.at(index).content);
-        setModified(index, false);
-    }
+    const OpenDocument &doc = m_docs.at(index);
+    const bool written = writeTextToFile(m_safeMode ? draftPathFor(doc.path) : doc.path,
+                                        doc.content);
+    // Failed writes must remain visible as unsaved changes and can be retried.
+    setModified(index, m_safeMode || !written);
 }
 
 void DocumentController::setModified(int index, bool value)
@@ -386,16 +239,24 @@ void DocumentController::setModified(int index, bool value)
 
 bool DocumentController::writeTextToFile(const QString &path, const QString &text)
 {
-    QFile f(path);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+    QSaveFile file(path);
+    const auto reportError = [&]() {
         emit errorOccurred(tr("Не удалось записать файл '%1': %2")
-                               .arg(QFileInfo(path).fileName(), f.errorString()));
+                               .arg(QFileInfo(path).fileName(), file.errorString()));
         return false;
-    }
-    QTextStream out(&f);
+    };
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return reportError();
+    QTextStream out(&file);
     out.setEncoding(QStringConverter::Utf8);
     out << text;
-    f.close();
+    out.flush();
+    if (out.status() != QTextStream::Ok) {
+        file.cancelWriting();
+        return reportError();
+    }
+    if (!file.commit())
+        return reportError();
     return true;
 }
 
@@ -418,18 +279,30 @@ void DocumentController::setSafeMode(bool on)
 {
     if (m_safeMode == on)
         return;
+    emit flushRequested();
+    if (!on && hasUnsavedChanges())
+        return;
     m_safeMode = on;
     QSettings().setValue(QStringLiteral("editor/safeMode"), on);
     emit safeModeChanged();
 }
 
-void DocumentController::saveActive()
+bool DocumentController::saveActive()
 {
-    if (m_active < 0 || m_active >= m_docs.size())
-        return;
-    writeTextToFile(m_docs.at(m_active).path, m_docs.at(m_active).content);
-    deleteDraft(m_docs.at(m_active).path);
-    setModified(m_active, false);
+    emit flushRequested();
+    return m_active >= 0 && m_active < m_docs.size() && saveDocument(m_active);
+}
+
+bool DocumentController::saveDocument(int index)
+{
+    const OpenDocument &doc = m_docs.at(index);
+    if (!writeTextToFile(doc.path, doc.content)) {
+        setModified(index, true);
+        return false;
+    }
+    deleteDraft(doc.path);
+    setModified(index, false);
+    return true;
 }
 
 bool DocumentController::hasUnsavedChanges() const
@@ -440,30 +313,38 @@ bool DocumentController::hasUnsavedChanges() const
     return false;
 }
 
-void DocumentController::applyAllDrafts()
+bool DocumentController::applyAllDrafts()
 {
+    emit flushRequested();
+    bool saved = true;
     for (int i = 0; i < m_docs.size(); ++i) {
-        if (!m_docs.at(i).modified)
-            continue;
-        writeTextToFile(m_docs.at(i).path, m_docs.at(i).content);
-        deleteDraft(m_docs.at(i).path);
-        setModified(i, false);
+        if (m_docs.at(i).modified && !saveDocument(i))
+            saved = false;
     }
+    return saved;
 }
 
-void DocumentController::discardAllDrafts()
+bool DocumentController::discardAllDrafts()
 {
+    emit flushRequested();
+    bool discarded = true;
     for (int i = 0; i < m_docs.size(); ++i) {
         if (!m_docs.at(i).modified)
             continue;
+        QString original;
+        if (!readFile(m_docs.at(i).path, original)) {
+            discarded = false;
+            continue;
+        }
         deleteDraft(m_docs.at(i).path);
-        m_docs[i].content = readFile(m_docs.at(i).path);
+        m_docs[i].content = original;
         setModified(i, false);
         if (i == m_active) {
             emit activeChanged();
             emit activeContentReset();
         }
     }
+    return discarded;
 }
 
 void DocumentController::persist() const
@@ -498,12 +379,21 @@ QString DocumentController::baseName(const QString &path)
     return QFileInfo(path).fileName();
 }
 
-QString DocumentController::readFile(const QString &path)
+bool DocumentController::readFile(const QString &path, QString &text)
 {
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
-        return {};
-    QTextStream in(&f);
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        emit errorOccurred(tr("Не удалось прочитать файл '%1': %2")
+                               .arg(QFileInfo(path).fileName(), file.errorString()));
+        return false;
+    }
+    QTextStream in(&file);
     in.setEncoding(QStringConverter::Utf8);
-    return in.readAll();
+    text = in.readAll();
+    if (file.error() != QFileDevice::NoError || in.status() != QTextStream::Ok) {
+        emit errorOccurred(tr("Не удалось прочитать файл '%1': %2")
+                               .arg(QFileInfo(path).fileName(), file.errorString()));
+        return false;
+    }
+    return true;
 }

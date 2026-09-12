@@ -53,6 +53,7 @@ class JsonHighlighter : public QObject
     Q_PROPERTY(QColor punctColor READ punctColor WRITE setPunctColor NOTIFY colorsChanged)
 public:
     explicit JsonHighlighter(QObject *parent = nullptr);
+    ~JsonHighlighter() override;
 
     QQuickTextDocument *document() const { return m_document; }
     void setDocument(QQuickTextDocument *doc);
@@ -89,7 +90,8 @@ private:
     void applyColors(); // протолкнуть текущие цвета в подсветчик + rehighlight
 
     QPointer<QQuickTextDocument> m_document;
-    JsonSyntaxHighlighter       *m_highlighter = nullptr;
+    QPointer<JsonSyntaxHighlighter> m_highlighter;
+    QMetaObject::Connection m_contentsConnection;
     int  m_tabWidth = 2;
     bool m_applyingIndent = false; // защита от рекурсии при правке формата блока
 

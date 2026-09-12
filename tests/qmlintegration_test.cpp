@@ -1,0 +1,200 @@
+#include "documentcontroller.h"
+#include "editorpreferences.h"
+#include "jsonhighlighter.h"
+#include "projectcontroller.h"
+#include <QDir>
+#include <QFile>
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQuickItem>
+#include <QQuickStyle>
+#include <QQuickWindow>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QTemporaryDir>
+#include <QTest>
+#include <memory>
+
+class QmlIntegrationTest : public QObject
+{
+    Q_OBJECT
+    QTemporaryDir m_temp;
+    QStringList m_warnings;
+    std::unique_ptr<ProjectController> m_project;
+    std::unique_ptr<DocumentController> m_docs;
+    std::unique_ptr<EditorPreferences> m_preferences;
+    std::unique_ptr<QQmlApplicationEngine> m_engine;
+    QObject *m_root = nullptr;
+
+    QVariant evaluate(QObject *scope, const QString &expression)
+    {
+        const qsizetype dot = expression.indexOf('.');
+        QObject *target = scope->findChild<QObject *>(expression.left(dot));
+        return target ? target->property(expression.mid(dot + 1).toUtf8().constData()) : QVariant();
+    }
+    QObject *object(QObject *scope, const QString &expression)
+    {
+        return expression.contains('.') ? evaluate(scope, expression).value<QObject *>()
+                                        : scope->findChild<QObject *>(expression);
+    }
+    void capture(const QString &name)
+    {
+        const QString output = qEnvironmentVariable("DSLRAY_TEST_CAPTURE_DIR");
+        if (output.isEmpty()) return;
+        QDir().mkpath(output);
+        auto *window = qobject_cast<QQuickWindow *>(m_root);
+        QVERIFY(window);
+        QTest::qWait(80);
+        const QImage image = window->grabWindow();
+        QVERIFY(!image.isNull());
+        QVERIFY(image.save(output + "/" + name + ".png"));
+    }
+
+private slots:
+    void initTestCase()
+    {
+        QVERIFY(m_temp.isValid());
+        QCoreApplication::setOrganizationName("DSLRayTests");
+        QCoreApplication::setApplicationName("qml-integration");
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_temp.path());
+        QStandardPaths::setTestModeEnabled(true);
+        m_project = std::make_unique<ProjectController>();
+        m_docs = std::make_unique<DocumentController>();
+        m_preferences = std::make_unique<EditorPreferences>();
+        connect(m_project.get(), &ProjectController::fileOperationRequested,
+                m_docs.get(), &DocumentController::flushRequested);
+        qmlRegisterType<JsonHighlighter>("DSLRay", 1, 0, "JsonHighlighter");
+        m_engine = std::make_unique<QQmlApplicationEngine>();
+        m_engine->rootContext()->setContextProperty("Project", m_project.get());
+        m_engine->rootContext()->setContextProperty("Docs", m_docs.get());
+        m_engine->rootContext()->setContextProperty("Preferences", m_preferences.get());
+        connect(m_engine.get(), &QQmlEngine::warnings, this, [this](const QList<QQmlError> &errors) {
+            for (const auto &error : errors) m_warnings.append(error.toString());
+        });
+        m_engine->loadFromModule("DSLRay", "Main");
+        QVERIFY2(!m_engine->rootObjects().isEmpty(), qPrintable(m_warnings.join("\n")));
+        m_root = m_engine->rootObjects().first();
+        QTest::qWait(100);
+    }
+    void menuPagesLoadOnDemandAndKeepState()
+    {
+        QObject *menu = nullptr;
+        for (QObject *child : m_root->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfMethod("requestToggleSafe()") >= 0) {
+                menu = child;
+                break;
+            }
+        }
+        QVERIFY(menu);
+        QCOMPARE(evaluate(menu, "profilePage.active").toBool(), false);
+        QCOMPARE(evaluate(menu, "editorPage.active").toBool(), false);
+        m_root->setProperty("menuOpen", true);
+        QTest::qWait(50);
+        QObject *popup = object(menu, "popup");
+        QVERIFY(popup);
+        const QList<QPair<int, QString>> pages {
+            {0, "profilePage"}, {2, "editorPage"}, {3, "appearancePage"}, {4, "aboutPage"}
+        };
+        for (const auto &page : pages) {
+            popup->setProperty("selectedIndex", page.first);
+            QTest::qWait(50);
+            QVERIFY(evaluate(menu, page.second + ".active").toBool());
+            QCOMPARE(evaluate(menu, page.second + ".status").toInt(), 1); // Loader.Ready
+            QVERIFY(object(menu, page.second + ".item"));
+            if (page.first == 3) capture("appearance-light");
+        }
+        QObject *profile = object(menu, "profilePage.item");
+        popup->setProperty("selectedIndex", 0);
+        QCOMPARE(object(menu, "profilePage.item"), profile);
+        m_preferences->setThemeId("dark");
+        popup->setProperty("selectedIndex", 3);
+        capture("appearance-dark");
+        m_root->setProperty("menuOpen", false);
+    }
+    void pendingEditorTextSurvivesSaveRenameMoveDelete()
+    {
+        const QString folder = m_temp.filePath("project");
+        QVERIFY(QDir().mkdir(folder));
+        const QString path = folder + "/sample.json";
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("{\n  \"elementName\": \"root\"\n}");
+        }
+        m_project->openProject(QUrl::fromLocalFile(folder));
+        m_docs->openFile(path);
+        QTest::qWait(50);
+        QObject *editor = object(m_root, "codeEditor");
+        QVERIFY(editor);
+        QObject *area = object(editor, "ta");
+        QVERIFY(area);
+        const QString edited = "{\n  \"elementName\": \"edited\"\n}";
+        area->setProperty("text", edited);
+        QVERIFY(m_docs->saveActive()); // Before the 400ms debounce fires.
+        {
+            QFile saved(path);
+            QVERIFY(saved.open(QIODevice::ReadOnly | QIODevice::Text));
+            QCOMPARE(QString::fromUtf8(saved.readAll()), edited);
+        }
+        area->setProperty("text", QString("{\"elementName\":\"renamed\"}"));
+        const QString renamed = m_project->renameItem(path, "renamed.json");
+        QVERIFY(!renamed.isEmpty());
+        m_docs->handlePathRenamed(path, renamed);
+        QCOMPARE(m_docs->activeContent(), QString("{\"elementName\":\"renamed\"}"));
+        QVERIFY(!QFile::exists(path));
+        QVERIFY(m_project->createFolder(folder, "target"));
+        area->setProperty("text", QString("{\"elementName\":\"moved\"}"));
+        const QString moved = m_project->moveItem(renamed, folder + "/target");
+        QVERIFY(!moved.isEmpty());
+        m_docs->handlePathRenamed(renamed, moved);
+        QCOMPARE(m_docs->activeContent(), QString("{\"elementName\":\"moved\"}"));
+        m_preferences->setWordWrap(true);
+        m_preferences->setCodeFontSize(20);
+        QTest::qWait(80);
+        capture("editor-dark");
+        const QString large = QString("{}\n").repeated(5000);
+        area->setProperty("text", large);
+        QTest::qWait(100);
+        QVERIFY(QMetaObject::invokeMethod(editor, "gotoOffset", Q_ARG(QVariant, QVariant(large.size()))));
+        QTest::qWait(100);
+        QObject *viewport = object(editor, "editor");
+        QVERIFY(viewport);
+        QVERIFY(viewport->property("firstVisibleLine").toInt() > 4900);
+        QObject *lineNumbers = object(editor, "lineNumbers");
+        QVERIFY(lineNumbers);
+        const int lineNumberItems = lineNumbers->property("count").toInt();
+        QVERIFY(lineNumberItems > 0);
+        QVERIFY(lineNumberItems < 100);
+        area->setProperty("text", QString("{\"elementName\":\"deleted\"}"));
+        QVERIFY(m_project->deleteItem(moved));
+        m_docs->closePath(moved);
+        QVERIFY(!QFile::exists(moved));
+        QVERIFY(!m_docs->hasDocuments());
+    }
+    void noQmlBindingErrors()
+    {
+        QVERIFY2(m_warnings.isEmpty(), qPrintable(m_warnings.join("\n")));
+    }
+    void cleanupTestCase()
+    {
+        m_engine.reset();
+        m_preferences.reset();
+        m_docs.reset();
+        m_project.reset();
+    }
+};
+int main(int argc, char **argv)
+{
+    qputenv("QT_QPA_PLATFORM", "offscreen");
+    qputenv("QT_QUICK_BACKEND", "software");
+#ifdef Q_OS_WIN
+    qputenv("QT_QPA_FONTDIR", "C:/Windows/Fonts");
+#endif
+    QGuiApplication app(argc, argv);
+    QQuickStyle::setStyle("Basic");
+    QmlIntegrationTest test;
+    return QTest::qExec(&test, argc, argv);
+}
+#include "qmlintegration_test.moc"

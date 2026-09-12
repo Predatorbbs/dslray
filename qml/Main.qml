@@ -19,6 +19,7 @@ import DSLRay
 ApplicationWindow {
     id: window
     visible: true
+    onClosing: codeEditor.flushPending()
 
     width: 1400
     height: 900
@@ -28,8 +29,8 @@ ApplicationWindow {
 
     color: Theme.bgApp
 
-    // Тема оформления приходит из настроек (Docs.themeId) — выставляем синглтону.
-    Binding { target: Theme; property: "id"; value: Docs.themeId }
+    // Тема оформления приходит из настроек (Preferences.themeId) — выставляем синглтону.
+    Binding { target: Theme; property: "id"; value: Preferences.themeId }
 
     // Шрифт по умолчанию — Segoe UI на Windows.
     font.family: Theme.fontSans
@@ -38,6 +39,31 @@ ApplicationWindow {
     // Открыто ли всплывающее меню приложения (попап поверх всего окна).
     property bool menuOpen: false
 
+    function showError(message) {
+        operationError.text = message
+        operationError.open()
+    }
+    Connections {
+        target: Docs
+        function onErrorOccurred(message) { window.showError(message) }
+    }
+    Connections {
+        target: Project
+        function onErrorOccurred(message) { window.showError(message) }
+    }
+    Dialog {
+        id: operationError
+        title: "Не удалось выполнить операцию"
+        property string text: ""
+        modal: true
+        anchors.centerIn: parent
+        width: Math.min(480, window.width - 40)
+        standardButtons: Dialog.Ok
+        contentItem: Label {
+            text: operationError.text
+            wrapMode: Text.WordWrap
+        }
+    }
     // Состояние диалога подтверждения удаления.
     property bool   deleteDialogOpen: false
     property string pendingDeletePath: ""

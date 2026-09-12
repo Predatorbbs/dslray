@@ -25,6 +25,7 @@ void ProjectController::setConfirmDelete(bool on)
 
 bool ProjectController::deleteItem(const QString &path)
 {
+    emit fileOperationRequested();
     return m_model->removeItem(path);
 }
 
@@ -64,10 +65,12 @@ bool ProjectController::createFile(const QString &parentPath, const QString &nam
 
 QString ProjectController::renameItem(const QString &path, const QString &newName)
 {
+    emit fileOperationRequested();
     return m_model->renameItem(path, newName);
 }
 
 QString ProjectController::moveItem(const QString &sourcePath, const QString &targetDir)
 {
+    emit fileOperationRequested();
     return m_model->moveItem(sourcePath, targetDir);
 }

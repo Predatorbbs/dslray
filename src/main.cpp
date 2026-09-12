@@ -10,6 +10,7 @@
 #include <QtQml>
 
 #include "documentcontroller.h"
+#include "editorpreferences.h"
 #include "jsonhighlighter.h"
 #include "projectcontroller.h"
 
@@ -55,10 +56,14 @@ int main(int argc, char *argv[])
 
     ProjectController project;
     DocumentController documents;
+    EditorPreferences preferences;
+    QObject::connect(&project, &ProjectController::fileOperationRequested,
+                     &documents, &DocumentController::flushRequested);
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("Project", &project);
     engine.rootContext()->setContextProperty("Docs", &documents);
+    engine.rootContext()->setContextProperty("Preferences", &preferences);
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,

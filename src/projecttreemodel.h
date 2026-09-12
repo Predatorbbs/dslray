@@ -68,6 +68,8 @@ private:
     void populate(TreeNode *node) const;                    // лениво заполнить детей
     static bool dirHasVisibleEntries(const QString &path);
     static bool isHiddenName(const QString &name);
+    bool validateName(const QString &name);
+    void insertChild(const QString &parentPath, const QString &name, bool isDir);
     TreeNode *findNode(const QString &path) const;          // среди заполненных
     static int sortedInsertPos(TreeNode *parent, const QString &name, bool isDir);
     static void rebasePaths(TreeNode *node, const QString &newPath); // обновить путь поддерева
