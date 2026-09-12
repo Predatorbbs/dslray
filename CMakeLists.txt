@@ -32,6 +32,8 @@ qt_add_executable(appDSLRay
     src/projectcontroller.cpp
     src/projecttreemodel.h
     src/projecttreemodel.cpp
+    src/editorpreferences.h
+    src/editorpreferences.cpp
     src/documentcontroller.h
     src/documentcontroller.cpp
     src/jsonhighlighter.h
@@ -50,14 +52,16 @@ set_source_files_properties(qml/theme/Theme.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
 
-qt_add_qml_module(appDSLRay
-    URI DSLRay
-    VERSION 1.0
-    QML_FILES
+set(dslray_qml_files
         qml/Main.qml
         qml/theme/Theme.qml
         qml/components/Toolbar.qml
         qml/components/MenuOverlay.qml
+        qml/components/MenuProfilePage.qml
+        qml/components/MenuEditorPage.qml
+        qml/components/MenuAppearancePage.qml
+        qml/components/MenuAboutPage.qml
+        qml/components/MenuButton.qml
         qml/components/FileTabs.qml
         qml/components/StatusBar.qml
         qml/components/PanelFrame.qml
@@ -65,7 +69,14 @@ qt_add_qml_module(appDSLRay
         qml/components/StructurePanel.qml
         qml/components/BoardPanel.qml
         qml/components/CodeEditor.qml
+        qml/components/EditorText.js
         qml/components/PropertiesPanel.qml
+)
+
+qt_add_qml_module(appDSLRay
+    URI DSLRay
+    VERSION 1.0
+    QML_FILES ${dslray_qml_files}
 )
 
 target_link_libraries(appDSLRay PRIVATE
@@ -98,3 +109,50 @@ install(TARGETS appDSLRay
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+include(CTest)
+if(BUILD_TESTING)
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+    function(dslray_add_test name)
+        qt_add_executable(${name} ${ARGN})
+        set_target_properties(${name} PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
+        target_include_directories(${name} PRIVATE src)
+        target_link_libraries(${name} PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
+        add_test(NAME ${name} COMMAND ${name})
+    endfunction()
+
+    dslray_add_test(documentcontroller_test
+        tests/documentcontroller_test.cpp src/documentcontroller.cpp src/documentcontroller.h)
+    dslray_add_test(editorpreferences_test
+        tests/editorpreferences_test.cpp src/editorpreferences.cpp src/editorpreferences.h)
+    dslray_add_test(projecttreemodel_test
+        tests/projecttreemodel_test.cpp src/projecttreemodel.cpp src/projecttreemodel.h)
+    dslray_add_test(editortext_test tests/editortext_test.cpp tests/editortext_test.h)
+    target_link_libraries(editortext_test PRIVATE Qt6::Qml)
+    target_compile_definitions(editortext_test PRIVATE
+        EDITOR_TEXT_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/qml/components/EditorText.js")
+
+
+    dslray_add_test(jsonhighlighter_test
+        tests/jsonhighlighter_test.cpp src/jsonhighlighter.cpp src/jsonhighlighter.h)
+    target_link_libraries(jsonhighlighter_test PRIVATE Qt6::Quick Qt6::Qml)
+    set_tests_properties(jsonhighlighter_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    dslray_add_test(qmlintegration_test
+        tests/qmlintegration_test.cpp
+        src/documentcontroller.cpp src/documentcontroller.h
+        src/editorpreferences.cpp src/editorpreferences.h
+        src/projectcontroller.cpp src/projectcontroller.h
+        src/projecttreemodel.cpp src/projecttreemodel.h
+        src/jsonhighlighter.cpp src/jsonhighlighter.h
+        resources/dslray_icons.qrc)
+    target_link_libraries(qmlintegration_test PRIVATE
+        Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2)
+    qt_add_resources(qmlintegration_test test_qml
+        PREFIX "/qt/qml/DSLRay" BASE "${CMAKE_CURRENT_SOURCE_DIR}"
+        FILES ${dslray_qml_files})
+    qt_add_resources(qmlintegration_test test_qmldir
+        PREFIX "/qt/qml/DSLRay" BASE "${CMAKE_CURRENT_BINARY_DIR}/DSLRay"
+        FILES "${CMAKE_CURRENT_BINARY_DIR}/DSLRay/qmldir")
+    add_dependencies(qmlintegration_test appDSLRay)
+endif()

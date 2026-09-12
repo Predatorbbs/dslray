@@ -2,6 +2,7 @@
 
 #include <QFontMetricsF>
 #include <QQuickTextDocument>
+#include <QStringView>
 #include <QTextBlock>
 #include <QTextBlockFormat>
 #include <QTextCursor>
@@ -80,12 +81,10 @@ void JsonSyntaxHighlighter::highlightBlock(const QString &text)
         }
 
         // Ключевые слова true / false / null.
-        static const QString kw[] = { QStringLiteral("true"),
-                                      QStringLiteral("false"),
-                                      QStringLiteral("null") };
+        static constexpr QStringView kw[] = { u"true", u"false", u"null" };
         bool matched = false;
-        for (const QString &w : kw) {
-            if (text.mid(i, w.length()) == w) {
+        for (const QStringView w : kw) {
+            if (c == w.front() && QStringView(text).mid(i, w.length()) == w) {
                 const QChar before = (i > 0) ? text.at(i - 1) : QChar();
                 const QChar after  = (i + w.length() < n) ? text.at(i + w.length()) : QChar();
                 const bool boundaryBefore = (i == 0) || !(before.isLetterOrNumber());
@@ -127,11 +126,15 @@ void JsonHighlighter::setDocument(QQuickTextDocument *doc)
 {
     if (m_document == doc)
         return;
-    if (m_document && m_document->textDocument())
-        disconnect(m_document->textDocument(), nullptr, this, nullptr);
     m_document = doc;
     attach();
     emit documentChanged();
+}
+
+JsonHighlighter::~JsonHighlighter()
+{
+    disconnect(m_contentsConnection);
+    delete m_highlighter.data();
 }
 
 void JsonHighlighter::setTabWidth(int width)
@@ -195,8 +198,10 @@ void JsonHighlighter::applyColors()
 
 void JsonHighlighter::attach()
 {
-    delete m_highlighter;
-    m_highlighter = nullptr;
+    disconnect(m_contentsConnection);
+    m_indentTimer.stop();
+    m_hasPending = false;
+    delete m_highlighter.data();
     if (m_document && m_document->textDocument()) {
         QTextDocument *d = m_document->textDocument();
         m_highlighter = new JsonSyntaxHighlighter(d);
@@ -204,7 +209,7 @@ void JsonHighlighter::attach()
         // На правки документа — отложенно переустановить висячий отступ затронутых
         // блоков (НЕ прямо здесь: правка формата во время установки текста ломает
         // обновление сцены TextArea — текст не прорисовывается до след. события).
-        connect(d, &QTextDocument::contentsChange, this,
+        m_contentsConnection = connect(d, &QTextDocument::contentsChange, this,
                 [this](int position, int charsRemoved, int charsAdded) {
                     Q_UNUSED(charsRemoved);
                     if (m_applyingIndent)

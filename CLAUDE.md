@@ -10,7 +10,8 @@
   `qml/theme/Theme.qml`).
 - Связь C++↔QML — через **контекстные свойства** (см. `src/main.cpp`):
   - `Project` → `ProjectController` (дерево проекта, файловые операции).
-  - `Docs` → `DocumentController` (открытые вкладки, режимы редактора, настройки, сессия).
+  - `Docs` → `DocumentController` (открытые вкладки, режим записи, черновики, сессия).
+  - `Preferences` → `EditorPreferences` (настройки редактора, темы и профиля).
   - `JsonHighlighter` — QML-тип через `qmlRegisterType` (подсветка JSON в редакторе).
 - Репозиторий: github.com/Predatorbbs/dslray, ветка `main`, коммиты напрямую в main.
 
@@ -91,7 +92,7 @@ projecttreemodel.cpp moc_*.cpp -lQt6Core`. Так проверялись move/re
 - **Редактор кода (CodeEditor.qml) — слои и инварианты:**
   - *Подсветка текущей строки* — на всю **логическую** строку (все визуальные ряды при
     переносе): `editor.curLineRect` от `lineStarts[caretLine]` до начала следующей строки.
-  - *Парные скобки / ошибки* считаются один раз на `ta.text` в `root.analyze()` (стек, с
+  - *Парные скобки / ошибки* считаются один раз на `ta.text` в `EditorText.analyze()` (стек, с
     учётом строк JSON) → `{pairs, errors}`. Оверлеи рисуются в `background` у `TextArea`
     (скроллятся с текстом) по `positionToRectangle`. `matchPair` смотрит на скобку у каретки.
   - *Направляющие вложений* — отдельный `Canvas` (`guideCanvas`), **фиксированный к окну**
@@ -115,10 +116,10 @@ projecttreemodel.cpp moc_*.cpp -lQt6Core`. Так проверялись move/re
     (минус гасит сдвиг первой визуальной строки, перенос — висит ровно на уровне строки).
     **Текст в файле не меняется** — только раскладка. Защита от рекурсии — флаг
     `m_applyingIndent` + сверка формата (вручную, не `qFuzzyCompare` — он ненадёжен при нуле).
-    `tabWidth` биндится из `Docs.indentWidth`; при смене `codeFontSize` QML зовёт
+    `tabWidth` биндится из `Preferences.indentWidth`; при смене `codeFontSize` QML зовёт
     `jsonHl.refreshIndent()` (через `Qt.callLater` — после применения нового шрифта).
   - *Цвета подсветки* настраиваемы: `JsonHighlighter` имеет `keyColor/stringColor/numberColor/
-    keywordColor/punctColor` (биндятся из `Docs.color*`, хранятся в QSettings `editor/color*`),
+    keywordColor/punctColor` (биндятся из `Preferences.color*`, хранятся в QSettings `editor/color*`),
     сеттер зовёт `setColors()` подсветчика + `rehighlight()`. Меню «Внешний вид» → блок
     «Внешний вид кода» (палитра `ColorDialog` из `QtQuick.Dialogs`; нужен `Qt6::QuickDialogs2`).
   - *Прокрутка колесом* — свой `WheelHandler` на `flick` (`wheelLines` строк за щелчок, дефолт 4;
@@ -133,7 +134,7 @@ projecttreemodel.cpp moc_*.cpp -lQt6Core`. Так проверялись move/re
     рабочим (подсветка, нумерация, текущая строка). Запас на будущий рефакторинг.
   - *Авто-отступ* (`insertNewline`) и *Tab* (`insertTab`) перехватываются в `Keys.onPressed`
     (Return/Enter/Tab), правят через `ta.insert/remove` (сохраняют undo). Раскрытие пары
-    `{}`/`[]` — двумя строками. Тип отступа — `Docs.indentUseTabs`, ширина — `Docs.indentWidth`.
+    `{}`/`[]` — двумя строками. Тип отступа — `Preferences.indentUseTabs`, ширина — `Preferences.indentWidth`.
   - *«Форматировать отступы»* (кнопка в шапке, `headerRight`) — `reindentText()` перевыставляет
     отступ каждой строки по глубине скобок (string-aware), затем `ta.text = ...` (правка идёт
     через дебаунс записи как обычная). Строка, начинающаяся с `}`/`]`, печатается на уровень левее.
@@ -146,18 +147,18 @@ projecttreemodel.cpp moc_*.cpp -lQt6Core`. Так проверялись move/re
 - `qml/theme/Theme.qml` — синглтон с **реактивными** цветами: `property string id` ("light"|"dark"),
   `readonly property bool dark`. Каждый цвет = тернарник `dark ? <тёмн> : <светл>`. **Имена токенов
   одинаковы в обеих темах**, поэтому весь UI перекрашивается сам (компоненты читают `Theme.xxx`).
-- `id` выставляется владельцем: в `Main.qml` — `Binding { target: Theme; property: "id"; value: Docs.themeId }`.
+- `id` выставляется владельцем: в `Main.qml` — `Binding { target: Theme; property: "id"; value: Preferences.themeId }`.
   Синглтон-`Theme` **не видит** контекст-свойства (`Docs`) сам — поэтому связывает Main, а не Theme.
-- Хранится в `Docs.themeId` (QSettings `appearance/theme`). Переключатель — в тулбаре справа.
+- Хранится в `Preferences.themeId` (QSettings `appearance/theme`). Переключатель — в тулбаре справа.
   Под новые темы: добавить ветку в тернарники Theme + карточку в «Настройки тем» (MenuOverlay).
 - При добавлении цвета в UI — **класть его токеном в Theme** (с обоими значениями), а не хардкодить,
   иначе тёмная тема сломается на этом месте. Новые токены: `accentSoft/accentRing/hover/hoverStrong/
   editorSelection/treeFolder/canvasDot`.
-- Цвета подсветки кода (`Docs.color*`) — **общие для обеих тем** (пользовательские), не тема-зависимые.
+- Цвета подсветки кода (`Preferences.color*`) — **общие для обеих тем** (пользовательские), не тема-зависимые.
 
 ## Профиль и статус-бар
 
-- `Docs.userName/userEmail/avatarPath` (QSettings `user/*`) — раздел «Пользователь» в меню (верхний).
+- `Preferences.userName/userEmail/avatarPath` (QSettings `user/*`) — раздел «Пользователь» в меню (верхний).
   Аватар выбирается `FileDialog`, путь хранится как `file://`-URL; в статус-баре — `Image` или кружок
   с инициалом.
 - Счётчики статус-бара **живые**: `CodeEditor` отдаёт `liveLines/liveChars/liveTokens` (токены ≈
@@ -187,3 +188,28 @@ projecttreemodel.cpp moc_*.cpp -lQt6Core`. Так проверялись move/re
   «Редактор кода» — заглушки.
 - `BoardPanel` (визуальный канвас) и `PropertiesPanel` — заглушки.
 - Позиции сплиттеров не сохраняются между запусками.
+
+## Рефакторинг: границы компонентов и проверки
+
+- Обычные настройки вынесены в `src/editorpreferences.*` / `Preferences`.
+  `Docs.safeMode` остаётся в DocumentController, поскольку определяет запись документов.
+  Существующие ключи QSettings сохранены.
+- `EditorText.js` содержит чистые алгоритмы: анализ скобок, индексацию строк,
+  форматирование и расчёт вставляемого отступа. `CodeEditor.qml` управляет TextArea,
+  undo и визуальными слоями. Логическая строка определяется бинарным поиском;
+  Repeater номеров строк и отрисовка направляющих ограничены видимой областью.
+- `MenuOverlay.qml` загружает страницы MenuProfile/Editor/Appearance/AboutPage
+  при первом посещении. Загруженные страницы сохраняются, чтобы не терять ввод
+  и прокрутку. MenuButton используется в меню и страницах; ColorDialog один.
+- `Docs.flushRequested` синхронно сбрасывает 400-мс таймер CodeEditor перед
+  сохранением, закрытием вкладки и сменой режима. `Project.fileOperationRequested`
+  соединён с этим сигналом в main.cpp и испускается ДО изменения файловой системы.
+  Не переносить flush после rename/delete: это может потерять ввод или создать старый файл.
+- Запись через QSaveFile проверяет QTextStream и commit. saveActive/applyAllDrafts/
+  discardAllDrafts возвращают bool; при неудаче режим не переключается,
+  черновик и признак изменения сохраняются. Ошибки Docs/Project видны через Main.qml.
+- При moveItem вид может раскрыть папку-получатель в обработчике rowsAboutToBeRemoved.
+  Состояние populated фиксируется до операции на диске: поздний populate уже содержит
+  перемещённый файл, поэтому повторная вставка запрещена.
+- `tests/` и CTest содержат регрессионные и QML-интеграционные проверки.
+  BUILD_TESTING=OFF позволяет собирать приложение без Qt Test.
