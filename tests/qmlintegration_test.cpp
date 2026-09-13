@@ -1,3 +1,4 @@
+#include <QElapsedTimer>
 #include "documentcontroller.h"
 #include "editorpreferences.h"
 #include "jsonhighlighter.h"
@@ -8,6 +9,8 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickItem>
+#include <QSignalSpy>
+#include <QTextDocument>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QSettings>
@@ -15,6 +18,18 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <memory>
+
+class LineNumberMonitor : public QObject
+{
+    Q_OBJECT
+public:
+    explicit LineNumberMonitor(QObject *repeater) : m_repeater(repeater) { recordCount(); }
+    int peak = 0;
+public slots:
+    void recordCount() { peak = qMax(peak, m_repeater->property("count").toInt()); }
+private:
+    QObject *m_repeater;
+};
 
 class QmlIntegrationTest : public QObject
 {
@@ -172,6 +187,88 @@ private slots:
         m_docs->closePath(moved);
         QVERIFY(!QFile::exists(moved));
         QVERIFY(!m_docs->hasDocuments());
+    }
+    void switchingIndentedAndEmptyTabs_data()
+    {
+        QTest::addColumn<int>("lines");
+        QTest::addColumn<bool>("wrap");
+        QTest::newRow("385-no-wrap") << 385 << false;
+        QTest::newRow("385-wrap") << 385 << true;
+        QTest::newRow("2000-no-wrap") << 2000 << false;
+        QTest::newRow("2000-wrap") << 2000 << true;
+    }
+    void switchingIndentedAndEmptyTabs()
+    {
+        QTest::failOnWarning();
+        QFETCH(int, lines);
+        QFETCH(bool, wrap);
+        m_preferences->setWordWrap(wrap);
+        const QString path = m_temp.filePath("indented.json");
+        const QString emptyPath = m_temp.filePath("empty.json");
+        QString text = "[\n";
+        for (int i = 0; i < lines - 2; ++i) {
+            text += QStringLiteral("    {\"elementName\": \"item%1\", \"value\": \"some text for a wrapped JSON line with indentation\"}%2\n")
+                        .arg(i).arg(i == lines - 3 ? "" : ",");
+        }
+        text += "]";
+        for (const auto &entry : {qMakePair(path, text), qMakePair(emptyPath, QString())}) {
+            QFile file(entry.first);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write(entry.second.toUtf8()), entry.second.toUtf8().size());
+        }
+        m_docs->openFile(path);
+        m_docs->openFile(emptyPath);
+        QTest::qWait(20);
+        QObject *editor = object(m_root, "codeEditor");
+        QVERIFY(editor);
+        QObject *area = object(editor, "ta");
+        QVERIFY(area);
+        auto *quickDoc = area->property("textDocument").value<QQuickTextDocument *>();
+        QVERIFY(quickDoc);
+        QObject *lineNumbers = object(editor, "lineNumbers");
+        QVERIFY(lineNumbers);
+        LineNumberMonitor monitor(lineNumbers);
+        QVERIFY(connect(lineNumbers, SIGNAL(countChanged()), &monitor, SLOT(recordCount())));
+        int peakNotifications = 0;
+        for (int repeat = 0; repeat < 2; ++repeat) {
+            for (int target : {0, 1}) {
+                QSignalSpy changes(quickDoc->textDocument(), &QTextDocument::contentsChanged);
+                QElapsedTimer elapsed;
+                elapsed.start();
+                m_docs->activate(target);
+                QTest::qWait(1); // Include deferred formatting and scene updates.
+                qInfo() << "Switch" << lines << "lines, wrap" << wrap << "to" << target
+                        << ":" << elapsed.elapsed() << "ms," << changes.count() << "notifications";
+                QCOMPARE(area->property("text").toString(), target == 0 ? text : QString());
+                peakNotifications = qMax(peakNotifications, int(changes.count()));
+                if (target == 0) {
+                    QVERIFY(QMetaObject::invokeMethod(editor, "gotoOffset", Q_ARG(QVariant, QVariant(text.size()))));
+                    QTest::qWait(1);
+                }
+            }
+        }
+        // Switching before the debounce fires must flush the outgoing file only.
+        m_docs->activate(0);
+        const QString edited = text + "\n  ";
+        area->setProperty("text", edited);
+        m_docs->activate(1);
+        QCOMPARE(area->property("text").toString(), QString());
+        m_docs->activate(0);
+        QCOMPARE(area->property("text").toString(), edited);
+        {
+            QFile saved(path);
+            QVERIFY(saved.open(QIODevice::ReadOnly | QIODevice::Text));
+            QCOMPARE(QString::fromUtf8(saved.readAll()), edited);
+            QFile emptyFile(emptyPath);
+            QCOMPARE(emptyFile.size(), 0);
+        }
+        QTest::qWait(1);
+        if (lines == 385 && wrap)
+            capture("tab-switch-wrapped");
+        m_docs->closePath(path);
+        m_docs->closePath(emptyPath);
+        QVERIFY2(peakNotifications <= 5, "Tab switch must not update the editor once per line");
+        QVERIFY2(monitor.peak < 100, "Tab switch must not instantiate line numbers for the entire file");
     }
     void noQmlBindingErrors()
     {

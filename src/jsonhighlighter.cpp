@@ -265,39 +265,40 @@ void JsonHighlighter::applyHangingIndent(int fromPos, int toPos)
         return;
 
     m_applyingIndent = true;
+    QTextCursor edit;
     QTextBlock block = d->findBlock(qMax(0, fromPos));
     const QTextBlock last = d->findBlock(qMax(fromPos, toPos));
     while (block.isValid()) {
-        applyToBlock(block, spaceWidth);
+        const QString text = block.text();
+        int cols = 0;
+        for (const QChar c : text) {
+            if (c == QLatin1Char(' '))
+                ++cols;
+            else if (c == QLatin1Char('\t'))
+                cols += m_tabWidth;
+            else
+                break;
+        }
+        const qreal margin = cols * spaceWidth;
+        QTextBlockFormat fmt = block.blockFormat();
+        if (qAbs(fmt.leftMargin() - margin) >= 0.01 || qAbs(fmt.textIndent() + margin) >= 0.01) {
+            // Batch all changed blocks into one notification/layout update.
+            // An empty edit block also notifies, so start only on a real change.
+            if (edit.isNull()) {
+                edit = QTextCursor(d);
+                edit.beginEditBlock();
+            }
+            fmt.setLeftMargin(margin);
+            fmt.setTextIndent(-margin);
+            edit.setPosition(block.position());
+            edit.setBlockFormat(fmt);
+        }
         if (block == last)
             break;
         block = block.next();
     }
+    // Keep the recursion guard until endEditBlock() emits contentsChange.
+    if (!edit.isNull())
+        edit.endEditBlock();
     m_applyingIndent = false;
-}
-
-void JsonHighlighter::applyToBlock(const QTextBlock &block, qreal spaceWidth)
-{
-    const QString text = block.text();
-    int cols = 0;
-    for (int i = 0; i < text.size(); ++i) {
-        const QChar c = text.at(i);
-        if (c == QLatin1Char(' '))
-            ++cols;
-        else if (c == QLatin1Char('\t'))
-            cols += m_tabWidth;
-        else
-            break;
-    }
-    // Продолжение строки висит ровно на уровне собственного отступа строки.
-    const qreal margin = cols * spaceWidth;
-    QTextBlockFormat fmt = block.blockFormat();
-    // Уже выставлено — выходим (и заодно рвём возможную рекурсию).
-    // (Сравниваем вручную: qFuzzyCompare ненадёжен при нулевых значениях.)
-    if (qAbs(fmt.leftMargin() - margin) < 0.01 && qAbs(fmt.textIndent() + margin) < 0.01)
-        return;
-    fmt.setLeftMargin(margin);
-    fmt.setTextIndent(-margin);
-    QTextCursor cur(block);
-    cur.setBlockFormat(fmt);
 }

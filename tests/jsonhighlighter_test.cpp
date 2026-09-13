@@ -1,3 +1,4 @@
+#include <QElapsedTimer>
 #include "jsonhighlighter.h"
 
 #include <QCoreApplication>
@@ -51,6 +52,7 @@ private slots:
     void documentCanBeDestroyedBeforeWrapper();
     void wrapperCanBeDestroyedBeforeDocument();
     void detachingCancelsPendingIndent();
+    void indentChangesAreBatched();
 };
 
 void JsonHighlighterTest::formatsJsonTokensAndEscapedStrings()
@@ -193,5 +195,35 @@ void JsonHighlighterTest::detachingCancelsPendingIndent()
     QCOMPARE(document->textDocument()->firstBlock().blockFormat().leftMargin(), 0.0);
 }
 
+void JsonHighlighterTest::indentChangesAreBatched()
+{
+    QQmlEngine engine;
+    auto edit = createTextEdit(engine);
+    QVERIFY(edit);
+    auto *document = quickDocument(edit.get());
+    QVERIFY(document);
+    const QString text = QStringLiteral("    {\"value\": true}\n").repeated(1000);
+    document->textDocument()->setPlainText(text);
+    JsonHighlighter wrapper;
+    wrapper.setDocument(document);
+    QSignalSpy changes(document->textDocument(), &QTextDocument::contentsChanged);
+    QElapsedTimer elapsed;
+    elapsed.start();
+    QCoreApplication::processEvents();
+    qInfo() << "Indent 1000 lines:" << elapsed.elapsed() << "ms," << changes.count() << "notifications";
+    QVERIFY(document->textDocument()->firstBlock().blockFormat().leftMargin() > 0);
+    QCOMPARE(document->textDocument()->toPlainText(), text);
+    QVERIFY2(changes.count() <= 2, "Indentation must not notify/layout the editor once per line");
+    const qreal margin = document->textDocument()->firstBlock().blockFormat().leftMargin();
+    for (QTextBlock block = document->textDocument()->firstBlock(); block.isValid(); block = block.next()) {
+        const qreal expected = block.text().isEmpty() ? 0.0 : margin;
+        QCOMPARE(block.blockFormat().leftMargin(), expected);
+        QCOMPARE(block.blockFormat().textIndent(), -expected);
+    }
+    changes.clear();
+    wrapper.refreshIndent();
+    QCoreApplication::processEvents();
+    QCOMPARE(changes.count(), 0); // Reapplying unchanged layout must be a no-op.
+}
 QTEST_MAIN(JsonHighlighterTest)
 #include "jsonhighlighter_test.moc"
