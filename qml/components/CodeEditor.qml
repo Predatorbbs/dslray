@@ -101,12 +101,27 @@ PanelFrame {
         ta.cursorPosition = edit.cursor
     }
 
-    // Вставку выполняет TextArea: сохраняем обычную историю undo/redo.
-    function insertTab() {
-        ta.insert(ta.cursorPosition, EditorText.tabText(ta.text, ta.cursorPosition,
-                                                      Preferences.indentWidth, Preferences.indentUseTabs))
+    function insertTab(backwards) {
+        if (!Docs.hasDocuments || ta.readOnly)
+            return
+        if (!backwards && ta.selectionStart === ta.selectionEnd) {
+            var position = ta.cursorPosition
+            var insertion = EditorText.tabText(ta.text, position,
+                                               Preferences.indentWidth, Preferences.indentUseTabs)
+            jsonHl.replaceText(position, position, insertion)
+            ta.cursorPosition = position + insertion.length
+            return
+        }
+        var reverseSelection = ta.cursorPosition === ta.selectionStart
+        var edit = EditorText.blockIndentEdit(ta.text, ta.selectionStart, ta.selectionEnd,
+                                              Preferences.indentWidth, Preferences.indentUseTabs, backwards)
+        if (!edit.changed)
+            return
+        jsonHl.replaceText(edit.from, edit.to, edit.text)
+        // Keep both the selected range and its direction for repeated Tab/Shift+Tab.
+        ta.select(reverseSelection ? edit.selectionEnd : edit.selectionStart,
+                  reverseSelection ? edit.selectionStart : edit.selectionEnd)
     }
-
     FontMetrics {
         id: fm
         font.family: Theme.fontMono
@@ -490,8 +505,9 @@ PanelFrame {
                     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                         root.insertNewline()
                         event.accepted = true
-                    } else if (event.key === Qt.Key_Tab) {
-                        root.insertTab()
+                    } else if ((event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)
+                               && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+                        root.insertTab(event.key === Qt.Key_Backtab || !!(event.modifiers & Qt.ShiftModifier))
                         event.accepted = true
                     }
                 }
