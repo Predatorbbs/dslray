@@ -86,7 +86,6 @@ private:
     void scheduleIndent(int fromPos, int toPos); // отложить применение (см. ниже)
     void flushIndent();                          // применить накопленный диапазон
     void applyHangingIndent(int fromPos, int toPos);
-    void applyToBlock(const QTextBlock &block, qreal spaceWidth);
     void applyColors(); // протолкнуть текущие цвета в подсветчик + rehighlight
 
     QPointer<QQuickTextDocument> m_document;

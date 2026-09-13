@@ -113,6 +113,13 @@ PanelFrame {
         font.pixelSize: Preferences.codeFontSize
     }
 
+    // Text/layout signals can arrive before cached line and bracket offsets update.
+    function textRectangle(position) {
+        if (root.suppressEdit)
+            return Qt.rect(0, 0, 0, root.lineHeight)
+        return ta.positionToRectangle(Math.max(0, Math.min(position, ta.length)))
+    }
+
     function reload() {
         if (Docs.activePath !== root.loadedPath) {
             // Незаписанные правки уходящего документа — сбросить на диск
@@ -235,8 +242,8 @@ PanelFrame {
                 return Qt.rect(0, 0, 0, 0)
             var s = root.lineStarts[cl]
             var e = (cl + 1 < root.lineStarts.length) ? root.lineStarts[cl + 1] - 1 : ta.length
-            var r1 = ta.positionToRectangle(s)
-            var r2 = ta.positionToRectangle(e)
+            var r1 = root.textRectangle(s)
+            var r2 = root.textRectangle(e)
             return Qt.rect(0, r1.y, ta.width, (r2.y + r2.height) - r1.y)
         }
 
@@ -253,16 +260,20 @@ PanelFrame {
 
         // Only instantiate line-number items around the viewport. Wrapped rows
         // still map to their logical line through the same cached offsets.
-        readonly property int firstVisibleLine: {
+        // Publish both bounds together: independent bindings briefly combined the
+        // new first line with the old last line and created a delegate per file line.
+        readonly property var visibleLines: {
+            if (root.suppressEdit)
+                return { first: 0, last: -1 }
             var dependencies = [ta.text, ta.width, ta.height, Preferences.wordWrap, Preferences.codeFontSize]
-            return Math.max(0, EditorText.lineAt(root.lineStarts,
+            var first = Math.max(0, EditorText.lineAt(root.lineStarts,
                 ta.positionAt(ta.leftPadding, flick.contentY)) - 1)
-        }
-        readonly property int lastVisibleLine: {
-            var dependencies = [ta.text, ta.width, ta.height, Preferences.wordWrap, Preferences.codeFontSize]
-            return Math.min(root.lineStarts.length - 1, EditorText.lineAt(root.lineStarts,
+            var last = Math.min(root.lineStarts.length - 1, EditorText.lineAt(root.lineStarts,
                 ta.positionAt(ta.leftPadding, flick.contentY + flick.height)) + 1)
+            return { first: first, last: last }
         }
+        readonly property int firstVisibleLine: visibleLines.first
+        readonly property int lastVisibleLine: visibleLines.last
         // Гаттер с номерами строк.
         Rectangle {
             id: gutter
@@ -287,12 +298,12 @@ PanelFrame {
 
                 Repeater {
                     objectName: "lineNumbers"
-                    model: Math.max(0, editor.lastVisibleLine - editor.firstVisibleLine + 1)
+                    model: Math.max(0, editor.visibleLines.last - editor.visibleLines.first + 1)
                     delegate: Text {
                         required property int index
-                        readonly property int logicalLine: editor.firstVisibleLine + index
+                        readonly property int logicalLine: editor.visibleLines.first + index
                         // Позиция логической строки (учитывает перенос).
-                        y: ta.positionToRectangle(root.lineStarts[logicalLine]).y
+                        y: root.textRectangle(root.lineStarts[logicalLine]).y
                         width: gutter.width - 8
                         height: root.lineHeight
                         horizontalAlignment: Text.AlignRight
@@ -344,8 +355,8 @@ PanelFrame {
                 var firstLine = Math.max(0, EditorText.lineAt(ls, topPosition) - 1)
                 for (var i = firstLine; i < ls.length; ++i) {
                     var startOff = ls[i]
-                    var y0 = ta.positionToRectangle(startOff).y
-                    var y1 = (i + 1 < ls.length) ? ta.positionToRectangle(ls[i + 1]).y
+                    var y0 = root.textRectangle(startOff).y
+                    var y1 = (i + 1 < ls.length) ? root.textRectangle(ls[i + 1]).y
                                                  : (y0 + root.lineHeight)
                     if (y1 < top) continue
                     if (y0 > bottom) break
@@ -371,9 +382,9 @@ PanelFrame {
                     // был текст — от его начала.
                     var lineA = ls[EditorText.lineAt(ls, a)]
                     var fnw = EditorText.firstContent(txt, lineA)
-                    var gx = Math.round(ta.positionToRectangle(fnw).x) + 0.5
-                    var ra = ta.positionToRectangle(a)
-                    var rb = ta.positionToRectangle(b)
+                    var gx = Math.round(root.textRectangle(fnw).x) + 0.5
+                    var ra = root.textRectangle(a)
+                    var rb = root.textRectangle(b)
                     var ya = ra.y + ra.height            // низ строки открывающей
                     var yb = rb.y                        // верх строки закрывающей
                     if (yb - ya > 1) {
@@ -504,7 +515,7 @@ PanelFrame {
                             required property var modelData
                             property rect rr: {
                                 var _ = [ta.width, ta.text, Preferences.wordWrap, Preferences.codeFontSize]
-                                return ta.positionToRectangle(modelData)
+                                return root.textRectangle(modelData)
                             }
                             x: rr.x
                             y: rr.y
@@ -524,7 +535,7 @@ PanelFrame {
                             required property var modelData
                             property rect rr: {
                                 var _ = [ta.width, ta.text, Preferences.wordWrap, Preferences.codeFontSize]
-                                return ta.positionToRectangle(modelData)
+                                return root.textRectangle(modelData)
                             }
                             x: rr.x
                             y: rr.y
