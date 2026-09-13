@@ -171,4 +171,70 @@ void EditorTextTest::tabAndGuides()
     QCOMPARE(call("firstContent", {QStringLiteral("x\n\t    value"), 2}).toInt(), 7);
     QCOMPARE(call("firstContent", {QStringLiteral("  \nnext"), 0}).toInt(), 2);
 }
+void EditorTextTest::blockIndentation_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::addColumn<int>("start");
+    QTest::addColumn<int>("end");
+    QTest::addColumn<int>("width");
+    QTest::addColumn<bool>("tabs");
+    QTest::addColumn<bool>("backwards");
+    QTest::addColumn<QString>("expected");
+    QTest::addColumn<int>("expectedStart");
+    QTest::addColumn<int>("expectedEnd");
+    QTest::newRow("partial-lines") << QString("one\ntwo\nthree") << 1 << 6 << 2 << false << false
+        << QString("  one\n  two\nthree") << 3 << 10;
+    QTest::newRow("reversed") << QString("one\ntwo\nthree") << 6 << 1 << 2 << false << false
+        << QString("  one\n  two\nthree") << 3 << 10;
+    QTest::newRow("end-at-column-zero") << QString("one\ntwo") << 0 << 4 << 2 << false << false
+        << QString("  one\ntwo") << 0 << 6;
+    QTest::newRow("single-line") << QString("abc") << 1 << 2 << 4 << false << false
+        << QString("    abc") << 5 << 6;
+    QTest::newRow("empty-line") << QString("a\n\nb") << 0 << 4 << 2 << false << false
+        << QString("  a\n  \n  b") << 0 << 10;
+    QTest::newRow("trailing-newline") << QString("a\n") << 0 << 2 << 2 << false << false
+        << QString("  a\n") << 0 << 4;
+    QTest::newRow("tabs") << QString("a\nb") << 0 << 3 << 4 << true << false
+        << QString("\ta\n\tb") << 0 << 5;
+    QTest::newRow("unindent-spaces") << QString("    a\n  b") << 0 << 9 << 2 << false << true
+        << QString("  a\nb") << 0 << 5;
+    QTest::newRow("unindent-tabs") << QString("\ta\n\tb") << 0 << 5 << 4 << true << true
+        << QString("a\nb") << 0 << 3;
+    QTest::newRow("mixed-whitespace") << QString(" \tx\n\t  y") << 0 << 8 << 2 << false << true
+        << QString("\tx\n  y") << 0 << 6;
+    QTest::newRow("short-indent") << QString(" a\nb") << 0 << 4 << 4 << true << true
+        << QString("a\nb") << 0 << 3;
+    QTest::newRow("caret") << QString("    a") << 3 << 3 << 2 << false << true
+        << QString("  a") << 1 << 1;
+    QTest::newRow("selection-inside-indent") << QString("    a\n    b") << 1 << 8 << 2 << false << true
+        << QString("  a\n  b") << 0 << 4;
+    QTest::newRow("no-indent") << QString("a\nb") << 0 << 3 << 2 << false << true
+        << QString("a\nb") << 0 << 3;
+    QTest::newRow("empty-document") << QString() << 0 << 0 << 2 << false << true
+        << QString() << 0 << 0;
+    QTest::newRow("utf16") << QString::fromUtf8("ёж\n🙂x") << 1 << 5 << 2 << false << false
+        << QString::fromUtf8("  ёж\n  🙂x") << 3 << 9;
+}
+
+void EditorTextTest::blockIndentation()
+{
+    QFETCH(QString, text);
+    QFETCH(int, start);
+    QFETCH(int, end);
+    QFETCH(int, width);
+    QFETCH(bool, tabs);
+    QFETCH(bool, backwards);
+    QFETCH(QString, expected);
+    QFETCH(int, expectedStart);
+    QFETCH(int, expectedEnd);
+    const auto result = call("blockIndentEdit", {text, start, end, width, tabs, backwards});
+    QVERIFY2(!result.isError(), qPrintable(result.toString()));
+    QString actual = text;
+    const int from = result.property("from").toInt();
+    actual.replace(from, result.property("to").toInt() - from, result.property("text").toString());
+    QCOMPARE(actual, expected);
+    QCOMPARE(result.property("selectionStart").toInt(), expectedStart);
+    QCOMPARE(result.property("selectionEnd").toInt(), expectedEnd);
+    QCOMPARE(result.property("changed").toBool(), text != expected);
+}
 QTEST_GUILESS_MAIN(EditorTextTest)

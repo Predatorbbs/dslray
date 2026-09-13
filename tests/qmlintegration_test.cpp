@@ -270,6 +270,139 @@ private slots:
         QVERIFY2(peakNotifications <= 5, "Tab switch must not update the editor once per line");
         QVERIFY2(monitor.peak < 100, "Tab switch must not instantiate line numbers for the entire file");
     }
+    void selectedLinesIndentAndUndo_data()
+    {
+        QTest::addColumn<bool>("tabs");
+        QTest::addColumn<bool>("reverse");
+        QTest::newRow("spaces-forward") << false << false;
+        QTest::newRow("spaces-reverse") << false << true;
+        QTest::newRow("tabs-forward") << true << false;
+        QTest::newRow("tabs-reverse") << true << true;
+    }
+    void selectedLinesIndentAndUndo()
+    {
+        QTest::failOnWarning();
+        QFETCH(bool, tabs);
+        QFETCH(bool, reverse);
+        m_preferences->setIndentWidth(tabs ? 4 : 2);
+        m_preferences->setIndentUseTabs(tabs);
+        const QString path = m_temp.filePath("indent-keys.json");
+        const QString body = "  \"first\": 1,\n  \"second\": 2\n";
+        const QString original = "{\n" + body + "}\n";
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(original.toUtf8());
+        }
+        m_docs->openFile(path);
+        QTest::qWait(20);
+        QObject *area = object(object(m_root, "codeEditor"), "ta");
+        QVERIFY(area);
+        auto *item = qobject_cast<QQuickItem *>(area);
+        QVERIFY(item);
+        item->forceActiveFocus();
+        auto *window = qobject_cast<QQuickWindow *>(m_root);
+        QVERIFY(window);
+        QVERIFY(area->property("activeFocus").toBool());
+        const int from = 2, to = original.indexOf('}');
+        QVERIFY(QMetaObject::invokeMethod(area, "select",
+            Q_ARG(int, reverse ? to : from), Q_ARG(int, reverse ? from : to)));
+        const QString unit = tabs ? "\t" : "  ";
+        const QString once = "{\n" + unit + "  \"first\": 1,\n" + unit + "  \"second\": 2\n}\n";
+        const QString twice = "{\n" + unit + unit + "  \"first\": 1,\n" + unit + unit + "  \"second\": 2\n}\n";
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::qWait(20); // Exercise deferred layout too, before checking Undo.
+        QCOMPARE(area->property("text").toString(), once);
+        QCOMPARE(area->property("selectionStart").toInt(), from);
+        QCOMPARE(area->property("selectionEnd").toInt(), to + 2 * unit.size());
+        QCOMPARE(area->property("cursorPosition").toInt(), reverse ? from : to + 2 * unit.size());
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::qWait(20);
+        QCOMPARE(area->property("text").toString(), twice);
+        QTest::keyClick(window, Qt::Key_Tab, Qt::ShiftModifier);
+        QTest::qWait(20);
+        QCOMPARE(area->property("text").toString(), once);
+        QTest::keyClick(window, Qt::Key_Backtab);
+        QTest::qWait(20);
+        QCOMPARE(area->property("text").toString(), original);
+        QCOMPARE(area->property("cursorPosition").toInt(), reverse ? from : to);
+        for (const QString &expected : {once, twice, once, original}) {
+            QTest::keyClick(window, Qt::Key_Z, Qt::ControlModifier);
+            QTest::qWait(20);
+            QCOMPARE(area->property("text").toString(), expected);
+        }
+        for (const QString &expected : {once, twice, once, original}) {
+            QTest::keyClick(window, Qt::Key_Y, Qt::ControlModifier);
+            QTest::qWait(20);
+            QCOMPARE(area->property("text").toString(), expected);
+        }
+        // A tab without a selection inserts at the caret, not at line start.
+        area->setProperty("cursorPosition", 1);
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::qWait(20);
+        const QString insertion = tabs ? "\t" : " ";
+        QCOMPARE(area->property("text").toString(), "{" + insertion + original.mid(1));
+        QTest::keyClick(window, Qt::Key_Z, Qt::ControlModifier);
+        QTest::qWait(20);
+        QCOMPARE(area->property("text").toString(), original);
+        // Shift+Tab without selection removes the current line's leading indent.
+        area->setProperty("cursorPosition", 6);
+        QTest::keyClick(window, Qt::Key_Backtab, Qt::ShiftModifier);
+        QTest::qWait(20);
+        QCOMPARE(area->property("text").toString(), "{\n\"first\": 1,\n  \"second\": 2\n}\n");
+        QTest::keyClick(window, Qt::Key_Z, Qt::ControlModifier);
+        QTest::qWait(20);
+        QCOMPARE(area->property("text").toString(), original);
+        m_docs->closePath(path);
+    }
+    void largeSelectionIsOneEdit()
+    {
+        QTest::failOnWarning();
+        m_preferences->setIndentWidth(2);
+        m_preferences->setIndentUseTabs(false);
+        const QString path = m_temp.filePath("large-indent.json");
+        const QString original = "[\n" + QString("  true,\n").repeated(499) + "  true\n]";
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(original.toUtf8());
+        }
+        m_docs->openFile(path);
+        QTest::qWait(20);
+        QObject *area = object(object(m_root, "codeEditor"), "ta");
+        QVERIFY(area);
+        auto *item = qobject_cast<QQuickItem *>(area);
+        QVERIFY(item);
+        item->forceActiveFocus();
+        auto *quickDoc = area->property("textDocument").value<QQuickTextDocument *>();
+        QVERIFY(quickDoc);
+        QVERIFY(QMetaObject::invokeMethod(area, "select", Q_ARG(int, 0), Q_ARG(int, int(original.size()))));
+        QSignalSpy changes(quickDoc->textDocument(), &QTextDocument::contentsChanged);
+        QElapsedTimer elapsed;
+        elapsed.start();
+        auto *window = qobject_cast<QQuickWindow *>(m_root);
+        QVERIFY(window);
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::qWait(20);
+        qInfo() << "Indent 502 selected lines:" << elapsed.elapsed() << "ms," << changes.count() << "notifications";
+        QString indented = original;
+        indented.replace("\n", "\n  ");
+        indented.prepend("  ");
+        QCOMPARE(area->property("text").toString(), indented);
+        QVERIFY(changes.count() <= 3);
+        QTest::keyClick(window, Qt::Key_Z, Qt::ControlModifier);
+        QTest::qWait(20);
+        QCOMPARE(area->property("text").toString(), original);
+        QTest::keyClick(window, Qt::Key_Y, Qt::ControlModifier);
+        QTest::qWait(20);
+        QCOMPARE(area->property("text").toString(), indented);
+        QVERIFY(m_docs->saveActive());
+        QFile saved(path);
+        QVERIFY(saved.open(QIODevice::ReadOnly | QIODevice::Text));
+        QCOMPARE(QString::fromUtf8(saved.readAll()), indented);
+        saved.close();
+        m_docs->closePath(path);
+    }
     void noQmlBindingErrors()
     {
         QVERIFY2(m_warnings.isEmpty(), qPrintable(m_warnings.join("\n")));

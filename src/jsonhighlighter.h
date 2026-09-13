@@ -76,6 +76,9 @@ public:
     // (меняется ширина пробела в пикселях).
     Q_INVOKABLE void refreshIndent();
 
+    // Apply a text command and its hanging-indent layout as one undo step.
+    Q_INVOKABLE void replaceText(int from, int to, const QString &text);
+
 signals:
     void documentChanged();
     void tabWidthChanged();

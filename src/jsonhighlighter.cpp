@@ -220,6 +220,23 @@ void JsonHighlighter::attach()
     }
 }
 
+void JsonHighlighter::replaceText(int from, int to, const QString &text)
+{
+    QTextDocument *d = m_document ? m_document->textDocument() : nullptr;
+    if (!d || from < 0 || to < from || to >= d->characterCount())
+        return;
+    // Settle any previous edit before starting this command's undo group.
+    flushIndent();
+    QTextCursor cursor(d);
+    cursor.setPosition(from);
+    cursor.setPosition(to, QTextCursor::KeepAnchor);
+    cursor.beginEditBlock();
+    cursor.insertText(text);
+    // This is outside contentsChange: text and layout can be committed together.
+    applyHangingIndent(from, from + text.size());
+    cursor.endEditBlock();
+}
+
 void JsonHighlighter::refreshIndent()
 {
     // Полный пересчёт тоже откладываем — вызывается при смене шрифта/ширины, может

@@ -132,3 +132,45 @@ function tabText(text, position, width, useTabs) {
     var start = position > 0 ? text.lastIndexOf("\n", position - 1) + 1 : 0
     return spaces(width - ((position - start) % width))
 }
+
+// Shift the logical lines touched by a selection, excluding an end at column 0.
+// Return one replacement plus adjusted selection bounds; preserve all other text.
+function blockIndentEdit(text, selectionStart, selectionEnd, width, useTabs, backwards) {
+    var start = Math.min(selectionStart, selectionEnd)
+    var end = Math.max(selectionStart, selectionEnd)
+    var selected = start !== end
+    var from = start > 0 ? text.lastIndexOf("\n", start - 1) + 1 : 0
+    var last = selected ? end - 1 : end
+    var to = text.indexOf("\n", last)
+    if (to < 0) to = text.length
+    var lines = text.slice(from, to).split("\n")
+    var edits = []
+    var position = from
+    var unit = indentUnit(width, useTabs)
+    for (var i = 0; i < lines.length; ++i) {
+        var line = lines[i]
+        var removed = 0
+        var inserted = backwards ? "" : unit
+        if (backwards) {
+            if (line.charAt(0) === "\t") removed = 1
+            else while (removed < width && line.charAt(removed) === " ") ++removed
+        }
+        if (removed || inserted.length)
+            edits.push({ position: position, removed: removed, added: inserted.length })
+        lines[i] = inserted + line.slice(removed)
+        position += line.length + 1
+    }
+    function adjusted(point, keepStart) {
+        var delta = 0
+        for (var i = 0; i < edits.length; ++i) {
+            var edit = edits[i]
+            if (point < edit.position || (point === edit.position && keepStart)) break
+            delta += edit.added - Math.min(edit.removed, point - edit.position)
+        }
+        return point + delta
+    }
+    return {
+        from: from, to: to, text: lines.join("\n"), changed: edits.length > 0,
+        selectionStart: adjusted(start, selected), selectionEnd: adjusted(end, false)
+    }
+}
