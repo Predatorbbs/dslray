@@ -110,6 +110,35 @@ install(TARGETS appDSLRay
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# Keep the developer build intact; "portable" creates a separate runnable package.
+if(WIN32)
+    add_executable(dslray_launcher WIN32 EXCLUDE_FROM_ALL
+        platform/windows/launcher.cpp platform/windows/dslray.rc)
+    set_target_properties(dslray_launcher PROPERTIES
+        AUTOMOC OFF AUTOUIC OFF AUTORCC OFF
+        OUTPUT_NAME appDSLRay
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/launcher")
+    if(MINGW)
+        target_link_options(dslray_launcher PRIVATE -municode -static)
+    elseif(MSVC)
+        set_property(TARGET dslray_launcher PROPERTY
+            MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    endif()
+    find_program(DSLRAY_POWERSHELL NAMES powershell pwsh REQUIRED)
+    get_filename_component(dslray_compiler_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    add_custom_target(portable
+        COMMAND "${DSLRAY_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_SOURCE_DIR}/cmake/PackageWindows.ps1"
+            -AppExe "$<TARGET_FILE:appDSLRay>"
+            -LauncherExe "$<TARGET_FILE:dslray_launcher>"
+            -DeployTool "$<TARGET_FILE_DIR:Qt6::Core>/windeployqt.exe"
+            -CompilerBin "${dslray_compiler_bin}"
+            -SourceDir "${CMAKE_SOURCE_DIR}"
+            -LogDirectory "${CMAKE_BINARY_DIR}/package-logs"
+            -Configuration "$<CONFIG>"
+        DEPENDS appDSLRay dslray_launcher
+        USES_TERMINAL VERBATIM)
+endif()
 include(CTest)
 if(BUILD_TESTING)
     find_package(Qt6 REQUIRED COMPONENTS Test)

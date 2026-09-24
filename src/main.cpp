@@ -5,6 +5,8 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QSettings>
+#include <QTemporaryDir>
+#include <memory>
 #include <QStringList>
 #include <QUrl>
 #include <QtQml>
@@ -45,6 +47,18 @@ int main(int argc, char *argv[])
     QGuiApplication::setOrganizationDomain("dslray.local");
     QGuiApplication::setApplicationVersion("0.3.0");
 
+    // Packaging check: load the real UI without showing it or touching user state.
+    const bool checkDeployment = app.arguments().contains(QStringLiteral("--check-deployment"));
+    std::unique_ptr<QTemporaryDir> checkSettings;
+    if (checkDeployment) {
+        checkSettings = std::make_unique<QTemporaryDir>();
+        if (!checkSettings->isValid())
+            return 1;
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, checkSettings->path());
+        QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, checkSettings->path());
+    }
+
     // Иконка окна / панели задач из встроенных ресурсов (см. dslray_icons.qrc).
     QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/icons/dslray_icon.png")));
 
@@ -60,6 +74,7 @@ int main(int argc, char *argv[])
     QObject::connect(&project, &ProjectController::fileOperationRequested,
                      &documents, &DocumentController::flushRequested);
 
+    bool deploymentWarnings = false;
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("Project", &project);
     engine.rootContext()->setContextProperty("Docs", &documents);
@@ -71,9 +86,17 @@ int main(int argc, char *argv[])
         []() { QCoreApplication::exit(-1); },
         Qt::QueuedConnection);
 
+    if (checkDeployment) {
+        engine.setInitialProperties({{QStringLiteral("visible"), false}});
+        QObject::connect(&engine, &QQmlEngine::warnings, &engine,
+                         [&deploymentWarnings](const QList<QQmlError> &) { deploymentWarnings = true; });
+    }
     engine.loadFromModule("DSLRay", "Main");
     if (engine.rootObjects().isEmpty())
         return -1;
+
+    if (checkDeployment)
+        return deploymentWarnings ? 1 : 0;
 
     // Восстанавливаем прошлую сессию уже поверх готового QML.
     restoreSession(project, documents);

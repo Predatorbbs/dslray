@@ -248,3 +248,18 @@ projecttreemodel.cpp moc_*.cpp -lQt6Core`. Так проверялись move/re
   TextArea.remove/insert или присваиванием ta.text: важен один шаг Undo/Redo.
 - Регрессии проверяют алгоритм, настоящие Tab/Shift+Tab/Backtab, повторные
   сдвиги, обратное выделение, Undo/Redo, сохранение и массовый сдвиг 502 строк.
+
+## Папка распространения Windows
+
+- Цель CMake portable (Release) создаёт dist/DSLRay через cmake/PackageWindows.ps1.
+  Не переносить CMakeFiles, тесты или логи из build в пакет.
+- Корневой appDSLRay.exe — маленький Win32-запускатель без Qt и внешнего MinGW
+  runtime. Основной exe и DLL лежат в bin. qt.conf в bin задаёт Prefix=..,
+  Plugins=plugins, QmlImports=qml, Translations=translations.
+- Запускатель сохраняет аргументы, рабочий каталог и код завершения дочернего
+  процесса; не меняет глобальный PATH и не ищет приложение через shell.
+- --check-deployment загружает настоящий QML скрыто, в изолированных QSettings,
+  без восстановления сессии. Упаковщик проверяет запуск из TEMP без Qt в PATH.
+- Публикуется только прошедшая проверку временная папка. Старый dist/DSLRay
+  целиком сохраняется в соседнюю резервную папку; не удалять весь dist:
+  там могут лежать пользовательские архивы.
