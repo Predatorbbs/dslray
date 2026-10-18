@@ -76,7 +76,7 @@ function indentStops(text, offset, width) {
     for (var i = offset; i < text.length; ++i) {
         var ch = text.charAt(i)
         if (ch === ' ') columns++
-        else if (ch === '\t') columns += width
+        else if (ch === '\t') columns += width - columns % width
         else break
     }
     return Math.floor(columns / width)
@@ -130,7 +130,11 @@ function newlineEdit(text, position, width, useTabs) {
 function tabText(text, position, width, useTabs) {
     if (useTabs) return "\t"
     var start = position > 0 ? text.lastIndexOf("\n", position - 1) + 1 : 0
-    return spaces(width - ((position - start) % width))
+    // Existing tabs occupy visual columns, not one column per character.
+    var column = 0
+    for (var i = start; i < position; ++i)
+        column += text.charAt(i) === "\t" ? width - column % width : 1
+    return spaces(width - column % width)
 }
 
 // Shift the logical lines touched by a selection, excluding an end at column 0.

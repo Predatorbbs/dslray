@@ -166,6 +166,11 @@ void EditorTextTest::tabAndGuides()
     QCOMPARE(call("tabText", {QStringLiteral("\ntext"), 0, 4, false}).toString(), QStringLiteral("    "));
     QCOMPARE(call("tabText", {QStringLiteral("a\nb"), 3, 4, false}).toString(), QStringLiteral("   "));
     QCOMPARE(call("tabText", {QStringLiteral("x"), 1, 4, true}).toString(), QStringLiteral("\t"));
+    QCOMPARE(call("tabText", {QStringLiteral("\t"), 1, 4, false}).toString(), QStringLiteral("    "));
+    QCOMPARE(call("tabText", {QStringLiteral("\t x"), 3, 4, false}).toString(), QStringLiteral("  "));
+    QCOMPARE(call("tabText", {QStringLiteral("x\n \t"), 4, 4, false}).toString(), QStringLiteral("    "));
+    QCOMPARE(call("indentStops", {QStringLiteral(" \t   value"), 0, 4}).toInt(), 1);
+    QCOMPARE(call("indentStops", {QStringLiteral(" \t \t  value"), 0, 4}).toInt(), 2);
     QCOMPARE(call("indentStops", {QStringLiteral(" \t  value"), 0, 4}).toInt(), 1);
     QCOMPARE(call("indentStops", {QStringLiteral("x\n\t    value"), 2, 4}).toInt(), 2);
     QCOMPARE(call("firstContent", {QStringLiteral("x\n\t    value"), 2}).toInt(), 7);

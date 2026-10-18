@@ -292,7 +292,8 @@ void JsonHighlighter::applyHangingIndent(int fromPos, int toPos)
             if (c == QLatin1Char(' '))
                 ++cols;
             else if (c == QLatin1Char('\t'))
-                cols += m_tabWidth;
+                // A tab advances to the next stop, including after spaces.
+                cols += m_tabWidth - cols % m_tabWidth;
             else
                 break;
         }

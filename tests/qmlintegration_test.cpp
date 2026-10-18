@@ -9,8 +9,13 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickItem>
+#include <QQuickItemGrabResult>
+#include <QtMath>
 #include <QSignalSpy>
 #include <QTextDocument>
+#include <QTextLayout>
+#include <QTextBlockFormat>
+#include <QFontMetricsF>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QSettings>
@@ -403,6 +408,203 @@ private slots:
         saved.close();
         m_docs->closePath(path);
     }
+
+    void importedTabsAlignWithSpaces_data()
+    {
+        QTest::addColumn<int>("tabWidth");
+        QTest::addColumn<bool>("wrap");
+        for (const int width : {2, 4, 8}) {
+            QTest::newRow(qPrintable(QString("width-%1-wrap").arg(width))) << width << true;
+            QTest::newRow(qPrintable(QString("width-%1-no-wrap").arg(width))) << width << false;
+        }
+    }
+    void importedTabsAlignWithSpaces()
+    {
+        QTest::failOnWarning();
+        QFETCH(int, tabWidth);
+        QFETCH(bool, wrap);
+        m_preferences->setIndentWidth(tabWidth);
+        m_preferences->setWordWrap(wrap);
+        const QStringList prefixes {"  ", "\t", "\t  ", "\t\t", " \t", "  \t \t"};
+        const QString value = QString("word ").repeated(60);
+        QString text = "{\n";
+        for (int i = 0; i < prefixes.size(); ++i)
+            text += prefixes[i] + QString("\"item%1\": \"%2\"%3\n")
+                    .arg(i).arg(value).arg(i + 1 < prefixes.size() ? "," : "");
+        text += "}\n";
+        const QString path = m_temp.filePath("imported-tabs.json");
+        const QByteArray original = QString(text).replace("\n", "\r\n").toUtf8();
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write(original), original.size());
+        }
+        m_docs->openFile(path);
+        QObject *editor = object(m_root, "codeEditor");
+        QObject *area = object(editor, "ta");
+        QVERIFY(area);
+        auto *document = area->property("textDocument").value<QQuickTextDocument *>()->textDocument();
+        // Changing the font of an already-open file must also resize tab stops.
+        for (const int fontSize : {14, 18, 26, 16}) {
+            m_preferences->setCodeFontSize(fontSize);
+            QTest::qWait(30);
+            const qreal space = QFontMetricsF(document->defaultFont()).horizontalAdvance(' ');
+            QCOMPARE(area->property("text").toString(), text);
+            QVERIFY(qAbs(area->property("tabStopDistance").toReal() - space * tabWidth) < 0.1);
+            QVERIFY(qAbs(editor->property("charWidth").toReal() - space) < 0.1);
+            for (auto block = document->begin().next(); block.next().isValid()
+                     && block.blockNumber() <= prefixes.size(); block = block.next()) {
+                const QString prefix = prefixes[block.blockNumber() - 1];
+                int column = 0;
+                for (const QChar c : prefix)
+                    column = c == '\t' ? (column / tabWidth + 1) * tabWidth : column + 1;
+                auto *layout = block.layout();
+                const qreal contentX = layout->lineAt(0).cursorToX(prefix.size());
+                QVERIFY2(qAbs(contentX - column * space) < 0.1, qPrintable(prefix));
+                if (wrap) {
+                    QVERIFY(layout->lineCount() > 1);
+                    for (int row = 1; row < layout->lineCount(); ++row)
+                        QVERIFY(qAbs(layout->lineAt(row).x() - contentX) < 0.1);
+                } else {
+                    QCOMPARE(layout->lineCount(), 1);
+                }
+            }
+            if (fontSize == 18 && tabWidth == 2 && wrap)
+                capture("imported-tabs");
+        }
+        // Display/layout changes must not rewrite tabs, spaces or CRLF on disk.
+        QTest::qWait(450);
+        QCOMPARE(m_docs->activeContent(), text);
+        QFile saved(path);
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QCOMPARE(saved.readAll(), original);
+        saved.close();
+        m_docs->closePath(path);
+    }
+
+
+    void formatButtonUsesPreferences_data()
+    {
+        QTest::addColumn<bool>("tabs");
+        QTest::addColumn<int>("indentWidth");
+        QTest::newRow("two-spaces") << false << 2;
+        QTest::newRow("four-spaces") << false << 4;
+        QTest::newRow("two-column-tabs") << true << 2;
+        QTest::newRow("four-column-tabs") << true << 4;
+    }
+    void formatButtonUsesPreferences()
+    {
+        QTest::failOnWarning();
+        QFETCH(bool, tabs);
+        QFETCH(int, indentWidth);
+        m_preferences->setCodeFontSize(18);
+        m_preferences->setIndentWidth(indentWidth);
+        m_preferences->setIndentUseTabs(tabs);
+        m_preferences->setWordWrap(true);
+        const QStringList lines {
+            "{", "\"elements\": [", "{", "\"elementName\": \"Header\",",
+            "\"children\": [", "{", "\"elementName\": \"Button\"", "}", "]", "}", "]", "}"
+        };
+        const QList<int> depths {0, 1, 2, 3, 3, 4, 5, 4, 3, 2, 1, 0};
+        QString original;
+        for (int i = 0; i < lines.size(); ++i)
+            original += QString(i % 3 + 1, ' ') + (i % 2 ? "\t" : "") + lines[i] + "\n";
+        const auto formatted = [&](bool useTabs) {
+            QString result;
+            const QString unit = useTabs ? "\t" : QString(indentWidth, ' ');
+            for (int i = 0; i < lines.size(); ++i)
+                result += unit.repeated(depths[i]) + lines[i] + "\n";
+            return result;
+        };
+        const QString path = m_temp.filePath("format-button.json");
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(original.toUtf8());
+        }
+        m_docs->openFile(path);
+        QTest::qWait(30);
+        QObject *editor = object(m_root, "codeEditor");
+        auto *area = qobject_cast<QQuickItem *>(object(editor, "ta"));
+        auto *button = qobject_cast<QQuickItem *>(object(editor, "formatButton"));
+        auto *guides = qobject_cast<QQuickItem *>(object(editor, "indentGuides"));
+        auto *window = qobject_cast<QQuickWindow *>(m_root);
+        QVERIFY(area && button && guides && window);
+        const auto clickFormat = [&]() {
+            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+                button->mapToScene(QPointF(button->width() / 2, button->height() / 2)).toPoint());
+            QTest::qWait(80);
+        };
+        clickFormat();
+        QCOMPARE(area->property("text").toString(), formatted(tabs));
+
+        // Check the actual painted lines, not just the formula used to draw them.
+        const auto grabbed = guides->grabToImage();
+        QVERIFY(grabbed);
+        QSignalSpy ready(grabbed.get(), &QQuickItemGrabResult::ready);
+        if (grabbed->image().isNull())
+            QVERIFY(ready.wait(1000));
+        const QImage image = grabbed->image();
+        QVERIFY(!image.isNull());
+        const qreal scaleX = image.width() / guides->width();
+        const qreal scaleY = image.height() / guides->height();
+        const QPointF origin = area->mapToItem(guides,
+            QPointF(area->property("leftPadding").toReal(), area->property("topPadding").toReal()));
+        auto *document = area->property("textDocument").value<QQuickTextDocument *>()->textDocument();
+        for (auto block = document->begin(); block.blockNumber() < depths.size(); block = block.next()) {
+            const int depth = depths[block.blockNumber()];
+            if (depth == 0) continue;
+            auto *layout = block.layout();
+            const auto row = layout->lineAt(0);
+            const int prefix = tabs ? depth : depth * indentWidth;
+            const qreal contentX = origin.x() + layout->position().x() + row.cursorToX(prefix);
+            const qreal step = (contentX - origin.x()) / depth;
+            const int y = qRound((origin.y() + layout->position().y() + row.y() + row.height() / 2) * scaleY);
+            QVERIFY(y >= 0 && y < image.height());
+            for (int level = 1; level <= depth; ++level) {
+                const int expectedX = qRound(qRound(origin.x() + level * step) * scaleX);
+                bool painted = false;
+                for (int x = expectedX - 1; x <= expectedX + 1; ++x)
+                    painted |= image.pixelColor(x, y).alpha() > 10;
+                QVERIFY2(painted, qPrintable(QString("Missing guide at line %1, level %2")
+                                            .arg(block.blockNumber() + 1).arg(level)));
+            }
+            for (int x = qCeil((origin.x() + 2) * scaleX); x < (contentX + 2) * scaleX; ++x) {
+                if (image.pixelColor(x, y).alpha() <= 10) continue;
+                bool aligned = false;
+                for (int level = 1; level <= depth; ++level)
+                    aligned |= qAbs(x - qRound(qRound(origin.x() + level * step) * scaleX)) <= 1;
+                QVERIFY2(aligned, "Indent guides must not use an old font/indent width");
+            }
+        }
+        capture(tabs ? "format-tabs" : "format-spaces");
+
+        area->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Z, Qt::ControlModifier);
+        QTest::qWait(30);
+        QCOMPARE(area->property("text").toString(), original);
+        QTest::keyClick(window, Qt::Key_Y, Qt::ControlModifier);
+        QTest::qWait(30);
+        QCOMPARE(area->property("text").toString(), formatted(tabs));
+        // Reformat the open document after switching the preference.
+        m_preferences->setIndentUseTabs(!tabs);
+        clickFormat();
+        QCOMPARE(area->property("text").toString(), formatted(!tabs));
+        clickFormat(); // An already formatted document must not add an Undo step.
+        area->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Z, Qt::ControlModifier);
+        QTest::qWait(30);
+        QCOMPARE(area->property("text").toString(), formatted(tabs));
+        QTest::keyClick(window, Qt::Key_Y, Qt::ControlModifier);
+        QTest::qWait(30);
+        QVERIFY(m_docs->saveActive());
+        QFile saved(path);
+        QVERIFY(saved.open(QIODevice::ReadOnly | QIODevice::Text));
+        QCOMPARE(QString::fromUtf8(saved.readAll()), formatted(!tabs));
+        saved.close();
+        m_docs->closePath(path);
+    }
+
     void noQmlBindingErrors()
     {
         QVERIFY2(m_warnings.isEmpty(), qPrintable(m_warnings.join("\n")));

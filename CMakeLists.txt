@@ -177,11 +177,10 @@ if(BUILD_TESTING)
         resources/dslray_icons.qrc)
     target_link_libraries(qmlintegration_test PRIVATE
         Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2)
-    qt_add_resources(qmlintegration_test test_qml
-        PREFIX "/qt/qml/DSLRay" BASE "${CMAKE_CURRENT_SOURCE_DIR}"
-        FILES ${dslray_qml_files})
-    qt_add_resources(qmlintegration_test test_qmldir
-        PREFIX "/qt/qml/DSLRay" BASE "${CMAKE_CURRENT_BINARY_DIR}/DSLRay"
-        FILES "${CMAKE_CURRENT_BINARY_DIR}/DSLRay/qmldir")
-    add_dependencies(qmlintegration_test appDSLRay)
+    # Exercise the same compiled QML bindings as the shipped executable.
+    qt_add_qml_module(qmlintegration_test
+        URI DSLRay
+        VERSION 1.0
+        OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test-qml/DSLRay"
+        QML_FILES ${dslray_qml_files})
 endif()

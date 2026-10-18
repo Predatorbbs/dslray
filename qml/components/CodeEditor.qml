@@ -19,6 +19,7 @@ PanelFrame {
     headerRight: [
         Rectangle {
             id: fmtBtn
+            objectName: "formatButton"
             visible: Docs.hasDocuments
             implicitWidth: 30
             implicitHeight: 24
@@ -53,7 +54,9 @@ PanelFrame {
     property bool suppressEdit: false
 
     readonly property int lineHeight: Math.ceil(fm.lineSpacing)
-    readonly property real charWidth: fm.advanceWidth("0")
+    // Use a notifying property: a synthetic dependency in an advanceWidth()
+    // call can be removed by the QML ahead-of-time compiler.
+    readonly property real charWidth: spaceMetrics.advanceWidth
 
     // Защита от тяжёлых файлов: разбор скобок/ошибок и направляющие вложений —
     // O(n) на каждую правку, поэтому выше порога они выключаются. Редактор при
@@ -86,7 +89,7 @@ PanelFrame {
         if (formatted === ta.text)
             return
         var pos = ta.cursorPosition
-        ta.text = formatted          // обычная правка → дебаунс записи на диск
+        jsonHl.replaceText(0, ta.length, formatted) // One Undo for text and layout.
         ta.cursorPosition = Math.min(pos, ta.length)
     }
 
@@ -126,6 +129,13 @@ PanelFrame {
         id: fm
         font.family: Theme.fontMono
         font.pixelSize: Preferences.codeFontSize
+    }
+
+    TextMetrics {
+        id: spaceMetrics
+        font: ta.font
+        renderType: ta.renderType
+        text: " "
     }
 
     // Text/layout signals can arrive before cached line and bracket offsets update.
@@ -247,7 +257,7 @@ PanelFrame {
         // иначе цикл биндингов gutterWidth ↔ ta.lineCount ↔ ta.width.
         readonly property int gutterWidth:
             Math.max(2, String(Math.max(1, root.lineStarts ? root.lineStarts.length : 1)).length)
-            * fm.advanceWidth("0") + 18
+            * root.charWidth + 18
 
         // Прямоугольник всей текущей логической строки (включая перенос).
         readonly property rect curLineRect: {
@@ -337,12 +347,13 @@ PanelFrame {
         // прозрачный фон Flickable/TextArea.
         Canvas {
             id: guideCanvas
+            objectName: "indentGuides"
             anchors.fill: flick
             renderStrategy: Canvas.Cooperative
 
-            property var paintDeps: [root.lineStarts, ta.width, ta.text,
+            property var paintDeps: [root.lineStarts, root.charWidth, ta.width, ta.text,
                 Preferences.codeFontSize, Preferences.wordWrap, Preferences.indentWidth,
-                flick.contentY, flick.height, root.richEnabled, editor.matchPair,
+                flick.contentX, flick.contentY, flick.height, root.richEnabled, editor.matchPair,
                 Theme.editorGuide, Theme.accent]
             onPaintDepsChanged: requestPaint()
 
@@ -351,9 +362,10 @@ PanelFrame {
                 ctx.reset()
                 if (!root.richEnabled)
                     return
-                var sw = fm.advanceWidth("0")
+                var sw = root.charWidth
                 var t = Preferences.indentWidth
                 var lp = ta.leftPadding
+                var left = flick.contentX
                 var top = flick.contentY
                 var bottom = top + flick.height
                 var txt = ta.text
@@ -377,7 +389,7 @@ PanelFrame {
                     if (y0 > bottom) break
                     var stops = EditorText.indentStops(txt, startOff, t)
                     for (var k = 1; k <= stops; ++k) {
-                        var x = Math.round(lp + k * t * sw) + 0.5
+                        var x = Math.round(lp + k * t * sw - left) + 0.5
                         ctx.beginPath()
                         ctx.moveTo(x, y0 - top)
                         ctx.lineTo(x, y1 - top)
@@ -397,7 +409,7 @@ PanelFrame {
                     // был текст — от его начала.
                     var lineA = ls[EditorText.lineAt(ls, a)]
                     var fnw = EditorText.firstContent(txt, lineA)
-                    var gx = Math.round(root.textRectangle(fnw).x) + 0.5
+                    var gx = Math.round(root.textRectangle(fnw).x - left) + 0.5
                     var ra = root.textRectangle(a)
                     var rb = root.textRectangle(b)
                     var ya = ra.y + ra.height            // низ строки открывающей
@@ -464,7 +476,7 @@ PanelFrame {
                 leftPadding: 8
                 topPadding: 6
                 bottomPadding: 6
-                tabStopDistance: fm.advanceWidth("0") * Preferences.indentWidth
+                tabStopDistance: root.charWidth * Preferences.indentWidth
 
                 // Пользовательская правка — запустить дебаунс записи.
                 onTextChanged: if (!root.suppressEdit) editTimer.restart()
