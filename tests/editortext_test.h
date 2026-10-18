@@ -20,4 +20,6 @@ private slots:
     void newlineInsertion_data();
     void newlineInsertion();
     void tabAndGuides();
+    void blockIndentation_data();
+    void blockIndentation();
 };

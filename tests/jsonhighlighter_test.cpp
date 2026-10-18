@@ -9,6 +9,8 @@
 #include <QTextBlockFormat>
 #include <QTextDocument>
 #include <QTextLayout>
+#include <QAbstractTextDocumentLayout>
+#include <QFontMetricsF>
 #include <QtTest>
 #include <memory>
 
@@ -53,6 +55,7 @@ private slots:
     void wrapperCanBeDestroyedBeforeDocument();
     void detachingCancelsPendingIndent();
     void indentChangesAreBatched();
+    void tabsKeepTheirVisualColumns();
 };
 
 void JsonHighlighterTest::formatsJsonTokensAndEscapedStrings()
@@ -225,5 +228,39 @@ void JsonHighlighterTest::indentChangesAreBatched()
     QCoreApplication::processEvents();
     QCOMPARE(changes.count(), 0); // Reapplying unchanged layout must be a no-op.
 }
+
+void JsonHighlighterTest::tabsKeepTheirVisualColumns()
+{
+    QQmlEngine engine;
+    for (const QString &prefix : {QString("\t"), QString("\t\t"), QString(" \t"),
+                                  QString("  \t \t"), QString("\t  "), QString("    ")}) {
+        auto edit = createTextEdit(engine);
+        QVERIFY(edit);
+        QFont font("Consolas");
+        font.setPixelSize(16);
+        edit->setProperty("font", font);
+        edit->setProperty("width", 260);
+        edit->setProperty("wrapMode", 1); // TextEdit.WordWrap
+        const qreal space = QFontMetricsF(font).horizontalAdvance(' ');
+        edit->setProperty("tabStopDistance", space * 4);
+        const QString text = prefix + "\"key\": \"one two three four five six seven eight nine ten\"";
+        edit->setProperty("text", text);
+        auto *document = quickDocument(edit.get())->textDocument();
+        document->documentLayout()->documentSize();
+        const qreal before = document->firstBlock().layout()->lineAt(0).cursorToX(prefix.size());
+        JsonHighlighter wrapper;
+        wrapper.setTabWidth(4);
+        wrapper.setDocument(quickDocument(edit.get()));
+        QCoreApplication::processEvents();
+        document->documentLayout()->documentSize();
+        const auto *layout = document->firstBlock().layout();
+        QVERIFY(layout->lineCount() > 1);
+        QVERIFY(qAbs(layout->lineAt(0).cursorToX(prefix.size()) - before) < 0.1);
+        for (int row = 1; row < layout->lineCount(); ++row)
+            QVERIFY(qAbs(layout->lineAt(row).x() - before) < 0.1);
+        QCOMPARE(document->toPlainText(), text);
+    }
+}
+
 QTEST_MAIN(JsonHighlighterTest)
 #include "jsonhighlighter_test.moc"
