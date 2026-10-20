@@ -292,7 +292,10 @@ private slots:
         m_preferences->setIndentWidth(tabs ? 4 : 2);
         m_preferences->setIndentUseTabs(tabs);
         const QString path = m_temp.filePath("indent-keys.json");
-        const QString body = "  \"first\": 1,\n  \"second\": 2\n";
+        // On-grid indentation so Tab/Shift+Tab round-trip exactly; snapping of
+        // off-grid indents is covered by editortext_test.
+        const QString unit = tabs ? "\t" : "  ";
+        const QString body = unit + "\"first\": 1,\n" + unit + "\"second\": 2\n";
         const QString original = "{\n" + body + "}\n";
         {
             QFile file(path);
@@ -312,9 +315,8 @@ private slots:
         const int from = 2, to = original.indexOf('}');
         QVERIFY(QMetaObject::invokeMethod(area, "select",
             Q_ARG(int, reverse ? to : from), Q_ARG(int, reverse ? from : to)));
-        const QString unit = tabs ? "\t" : "  ";
-        const QString once = "{\n" + unit + "  \"first\": 1,\n" + unit + "  \"second\": 2\n}\n";
-        const QString twice = "{\n" + unit + unit + "  \"first\": 1,\n" + unit + unit + "  \"second\": 2\n}\n";
+        const QString once = "{\n" + unit.repeated(2) + "\"first\": 1,\n" + unit.repeated(2) + "\"second\": 2\n}\n";
+        const QString twice = "{\n" + unit.repeated(3) + "\"first\": 1,\n" + unit.repeated(3) + "\"second\": 2\n}\n";
         QTest::keyClick(window, Qt::Key_Tab);
         QTest::qWait(20); // Exercise deferred layout too, before checking Undo.
         QCOMPARE(area->property("text").toString(), once);
@@ -354,7 +356,7 @@ private slots:
         area->setProperty("cursorPosition", 6);
         QTest::keyClick(window, Qt::Key_Backtab, Qt::ShiftModifier);
         QTest::qWait(20);
-        QCOMPARE(area->property("text").toString(), "{\n\"first\": 1,\n  \"second\": 2\n}\n");
+        QCOMPARE(area->property("text").toString(), "{\n\"first\": 1,\n" + unit + "\"second\": 2\n}\n");
         QTest::keyClick(window, Qt::Key_Z, Qt::ControlModifier);
         QTest::qWait(20);
         QCOMPARE(area->property("text").toString(), original);
@@ -406,6 +408,163 @@ private slots:
         QVERIFY(saved.open(QIODevice::ReadOnly | QIODevice::Text));
         QCOMPARE(QString::fromUtf8(saved.readAll()), indented);
         saved.close();
+        m_docs->closePath(path);
+    }
+
+    // Real key presses through CodeEditor's Keys handler: Enter, the
+    // "electric" closing bracket, smart Backspace and one-step Undo.
+    void smartIndentKeys()
+    {
+        QTest::failOnWarning();
+        m_preferences->setIndentWidth(4);
+        m_preferences->setIndentUseTabs(false);
+        const QString path = m_temp.filePath("smart-keys.json");
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("[");
+        }
+        m_docs->openFile(path);
+        QTest::qWait(20);
+        QObject *area = object(object(m_root, "codeEditor"), "ta");
+        auto *item = qobject_cast<QQuickItem *>(area);
+        auto *window = qobject_cast<QQuickWindow *>(m_root);
+        QVERIFY(area && item && window);
+        item->forceActiveFocus();
+        QVERIFY(area->property("activeFocus").toBool());
+        const auto text = [area]() { return area->property("text").toString(); };
+
+        area->setProperty("cursorPosition", 1);
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(text(), QString("[\n    "));
+        QTest::keyClick(window, '{');
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(text(), QString("[\n    {\n        "));
+        // `}` on an indent-only line outdents to the line of its `{`.
+        QTest::keyClick(window, '}');
+        QTest::qWait(20);
+        QCOMPARE(text(), QString("[\n    {\n    }"));
+        QTest::keyClick(window, Qt::Key_Z, Qt::ControlModifier);
+        QTest::qWait(20);
+        QCOMPARE(text(), QString("[\n    {\n        "));
+        QTest::keyClick(window, Qt::Key_Y, Qt::ControlModifier);
+        QTest::qWait(20);
+        QCOMPARE(text(), QString("[\n    {\n    }"));
+        // Backspace in the indentation goes back a whole stop.
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(text(), QString("[\n    {\n    }\n    "));
+        QTest::keyClick(window, Qt::Key_Backspace);
+        QCOMPARE(text(), QString("[\n    {\n    }\n"));
+        // Already aligned closer: ordinary typing.
+        QTest::keyClick(window, ']');
+        QCOMPARE(text(), QString("[\n    {\n    }\n]"));
+        // Enter at the start of an indented line opens an empty line above it
+        // instead of doubling the indentation.
+        area->setProperty("cursorPosition", 2);
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(text(), QString("[\n\n    {\n    }\n]"));
+        // Arrows inside space indentation jump whole stops (sticky tab stops).
+        area->setProperty("cursorPosition", 7);
+        QTest::keyClick(window, Qt::Key_Left);
+        QCOMPARE(area->property("cursorPosition").toInt(), 3);
+        QTest::keyClick(window, Qt::Key_Right);
+        QCOMPARE(area->property("cursorPosition").toInt(), 7);
+        QTest::keyClick(window, Qt::Key_Left, Qt::ShiftModifier);
+        QCOMPARE(area->property("selectionStart").toInt(), 3);
+        QCOMPARE(area->property("selectionEnd").toInt(), 7);
+        QCOMPARE(area->property("cursorPosition").toInt(), 3);
+
+        // A mouse click inside the indentation lands on the nearest guide.
+        // Line "    {" starts at 3; columns 1 and 3 are between the stops 0 and 4.
+        const auto clickAt = [&](int position) {
+            QRectF rect;
+            QVERIFY(QMetaObject::invokeMethod(area, "positionToRectangle",
+                                              Q_RETURN_ARG(QRectF, rect), Q_ARG(int, position)));
+            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+                              item->mapToScene(QPointF(rect.x() + 1, rect.center().y())).toPoint());
+            QTest::qWait(400); // keep separate clicks from forming a double-click
+        };
+        clickAt(4);
+        QCOMPARE(area->property("cursorPosition").toInt(), 3);
+        clickAt(6);
+        QCOMPARE(area->property("cursorPosition").toInt(), 7);
+        QCOMPARE(area->property("selectionStart").toInt(), area->property("selectionEnd").toInt());
+        m_docs->closePath(path);
+    }
+
+    void structureClickSelectsClickedObject_data()
+    {
+        QTest::addColumn<int>("fontSize");
+        QTest::addColumn<bool>("wrap");
+        for (int size : {14, 16, 20, 26})
+            for (bool wrap : {false, true})
+                QTest::newRow(qPrintable(QString("%1px%2").arg(size).arg(wrap ? "-wrap" : "")))
+                    << size << wrap;
+    }
+
+    // Clicking an object in «Структура» must make exactly that object current,
+    // including the last objects that cannot be scrolled to the top.
+    void structureClickSelectsClickedObject()
+    {
+        QFETCH(int, fontSize);
+        QFETCH(bool, wrap);
+        m_preferences->setCodeFontSize(fontSize);
+        m_preferences->setWordWrap(wrap);
+        QString json = "{\n    \"children\": [\n";
+        const int count = 30;
+        for (int i = 0; i < count; ++i) {
+            json += "        {\n            \"type\": \"block\",\n"
+                    "            \"elementName\": \"Object " + QString::number(i) + "\",\n"
+                    "            \"view\": \"" + QString("long text ").repeated(wrap ? 12 : 1) + "\"\n"
+                    "        }" + (i + 1 < count ? "," : "") + "\n";
+        }
+        json += "    ]\n}\n";
+        const QString path = m_temp.filePath("structure-click.json");
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(json.toUtf8());
+        }
+        m_docs->openFile(path);
+        QTest::qWait(50);
+        QObject *structure = object(m_root, "structurePanel");
+        QVERIFY(structure);
+        const QVariantList elements = structure->property("elements").toList();
+        QCOMPARE(elements.size(), count);
+        QStringList wrong;
+        for (int i = 0; i < count; ++i) {
+            // The same call the row's MouseArea makes.
+            QVERIFY(QMetaObject::invokeMethod(structure, "activate", Q_ARG(int, i)));
+            QTest::qWait(10);
+            const int current = structure->property("currentItemIndex").toInt();
+            if (current != i)
+                wrong << QString("%1→%2").arg(i).arg(current);
+        }
+        QVERIFY2(wrong.isEmpty(), qPrintable("clicked→current: " + wrong.join(", ")));
+
+        // Scrolling the code releases the pin of the last (unscrollable) object.
+        QObject *editor = object(m_root, "codeEditor");
+        QVERIFY(QMetaObject::invokeMethod(editor, "gotoOffset", Q_ARG(QVariant, 0)));
+        QTest::qWait(10);
+        QCOMPARE(structure->property("currentItemIndex").toInt(), -1);
+
+        // A real mouse click on a row selects that row.
+        QQuickItem *listView = nullptr;
+        for (auto *child : structure->findChildren<QQuickItem *>())
+            if (QByteArray(child->metaObject()->className()).startsWith("QQuickListView"))
+                listView = child;
+        QVERIFY(listView);
+        QQuickItem *row = nullptr;
+        QVERIFY(QMetaObject::invokeMethod(listView, "itemAtIndex",
+                                          Q_RETURN_ARG(QQuickItem *, row), Q_ARG(int, 2)));
+        QVERIFY(row);
+        auto *window = qobject_cast<QQuickWindow *>(m_root);
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+                          row->mapToScene(QPointF(row->width() / 2, row->height() / 2)).toPoint());
+        QTest::qWait(10);
+        QCOMPARE(structure->property("currentItemIndex").toInt(), 2);
+        m_preferences->setCodeFontSize(14);
+        m_preferences->setWordWrap(false);
         m_docs->closePath(path);
     }
 
@@ -561,7 +720,9 @@ private slots:
             const qreal step = (contentX - origin.x()) / depth;
             const int y = qRound((origin.y() + layout->position().y() + row.y() + row.height() / 2) * scaleY);
             QVERIFY(y >= 0 && y < image.height());
-            for (int level = 1; level <= depth; ++level) {
+            // Guides sit at every stop left of the text (under the parent's
+            // brackets): levels 0..depth-1, never at the text column itself.
+            for (int level = 0; level < depth; ++level) {
                 const int expectedX = qRound(qRound(origin.x() + level * step) * scaleX);
                 bool painted = false;
                 for (int x = expectedX - 1; x <= expectedX + 1; ++x)
@@ -572,7 +733,7 @@ private slots:
             for (int x = qCeil((origin.x() + 2) * scaleX); x < (contentX + 2) * scaleX; ++x) {
                 if (image.pixelColor(x, y).alpha() <= 10) continue;
                 bool aligned = false;
-                for (int level = 1; level <= depth; ++level)
+                for (int level = 0; level < depth; ++level)
                     aligned |= qAbs(x - qRound(qRound(origin.x() + level * step) * scaleX)) <= 1;
                 QVERIFY2(aligned, "Indent guides must not use an old font/indent width");
             }

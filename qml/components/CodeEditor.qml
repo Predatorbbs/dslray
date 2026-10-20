@@ -71,9 +71,16 @@ PanelFrame {
     readonly property int liveLines:  Docs.hasDocuments ? (root.lineStarts ? root.lineStarts.length : 1) : 0
     readonly property int liveTokens: Docs.hasDocuments ? Math.max(1, Math.ceil(ta.length / 4)) : 0
 
-    // Символьное смещение начала строки, идущей сразу под верхом видимой
-    // области — для подсветки «пройденных» объектов в «Структуре».
-    readonly property int topOffset: (ta.length, ta.positionAt(ta.leftPadding + 2, flick.contentY + root.lineHeight + 2))
+    // Смещение конца логической строки, стоящей первой в видимой области, —
+    // для подсветки «пройденных» объектов в «Структуре» (объект на верхней
+    // строке уже пройден). Зонд — в середине ряда, не на границе: на границе
+    // позиция зависела от округления высоты строки, и при части размеров
+    // шрифта «Структура» выбирала предыдущий объект.
+    readonly property int topOffset: {
+        var top = ta.positionAt(ta.leftPadding + 2, flick.contentY + root.lineHeight / 2)
+        var line = EditorText.lineAt(root.lineStarts, top)
+        return line + 1 < root.lineStarts.length ? root.lineStarts[line + 1] - 1 : ta.length
+    }
 
     // Смещения начал логических строк (для нумерации, корректной при переносе).
     readonly property var lineStarts: EditorText.lineStarts(ta.text)
@@ -93,26 +100,82 @@ PanelFrame {
         ta.cursorPosition = Math.min(pos, ta.length)
     }
 
-    // Enter с учётом структуры: сохраняем отступ текущей строки, добавляем
-    // уровень после открывающей скобки, «раскрываем» пару {}/[] двумя строками.
+    // Применить правку EditorText ({from, to, text, cursor}) одним шагом Undo.
+    function applyEdit(edit) {
+        if (!edit)
+            return false
+        jsonHl.replaceText(edit.from, edit.to, edit.text)
+        ta.cursorPosition = edit.cursor
+        return true
+    }
+
+    // Enter с учётом структуры (см. EditorText.newlineEdit): отступ по колонкам
+    // до каретки, уровень после открывающей скобки, раскрытие пары {}/[].
     function insertNewline() {
         if (ta.selectedText.length > 0)
             ta.remove(ta.selectionStart, ta.selectionEnd)
-        var pos = ta.cursorPosition
-        var edit = EditorText.newlineEdit(ta.text, pos, Preferences.indentWidth, Preferences.indentUseTabs)
-        ta.insert(pos, edit.text)
-        ta.cursorPosition = edit.cursor
+        root.applyEdit(EditorText.newlineEdit(ta.text, ta.cursorPosition,
+                                              Preferences.indentWidth, Preferences.indentUseTabs))
+    }
+
+    // Backspace в отступе — до предыдущей позиции табуляции. false — обычное удаление.
+    function smartBackspace() {
+        if (!Docs.hasDocuments || ta.readOnly || ta.selectionStart !== ta.selectionEnd)
+            return false
+        return root.applyEdit(EditorText.backspaceEdit(ta.text, ta.cursorPosition,
+                                                       Preferences.indentWidth, Preferences.indentUseTabs))
+    }
+
+    // `}`/`]` на строке из одних пробелов выравнивается по строке парной скобки.
+    function typeClosingBracket(closer) {
+        if (!Docs.hasDocuments || ta.readOnly || ta.selectionStart !== ta.selectionEnd)
+            return false
+        return root.applyEdit(EditorText.closingBracketEdit(ta.text, ta.cursorPosition, closer,
+                                                            Preferences.indentWidth, Preferences.indentUseTabs))
+    }
+
+    // ←/→ в отступе — сразу на позицию табуляции (по направляющим). С Shift
+    // расширяет выделение. false — обычное перемещение на символ.
+    function indentCaretMove(forward, extend) {
+        if (!Docs.hasDocuments || (!extend && ta.selectionStart !== ta.selectionEnd))
+            return false
+        var target = EditorText.indentCaretMove(ta.text, ta.cursorPosition,
+                                                Preferences.indentWidth, forward)
+        if (target < 0)
+            return false
+        if (extend)
+            ta.moveCursorSelection(target)
+        else
+            ta.cursorPosition = target
+        return true
+    }
+
+    // После клика/выделения мышью: концы, попавшие внутрь отступа, встают на
+    // ближайшую направляющую (как стрелки). Направление выделения сохраняется.
+    function snapCaretToIndentStops() {
+        if (!Docs.hasDocuments)
+            return
+        var w = Preferences.indentWidth
+        var a = ta.selectionStart, b = ta.selectionEnd
+        if (a === b) {
+            var p = EditorText.snapToIndentStop(ta.text, a, w)
+            if (p !== a)
+                ta.cursorPosition = p
+            return
+        }
+        var reversed = ta.cursorPosition === a
+        var sa = EditorText.snapToIndentStop(ta.text, a, w)
+        var sb = EditorText.snapToIndentStop(ta.text, b, w)
+        if (sa !== a || sb !== b)
+            ta.select(reversed ? sb : sa, reversed ? sa : sb)
     }
 
     function insertTab(backwards) {
         if (!Docs.hasDocuments || ta.readOnly)
             return
         if (!backwards && ta.selectionStart === ta.selectionEnd) {
-            var position = ta.cursorPosition
-            var insertion = EditorText.tabText(ta.text, position,
-                                               Preferences.indentWidth, Preferences.indentUseTabs)
-            jsonHl.replaceText(position, position, insertion)
-            ta.cursorPosition = position + insertion.length
+            root.applyEdit(EditorText.tabEdit(ta.text, ta.cursorPosition,
+                                              Preferences.indentWidth, Preferences.indentUseTabs))
             return
         }
         var reverseSelection = ta.cursorPosition === ta.selectionStart
@@ -387,8 +450,10 @@ PanelFrame {
                                                  : (y0 + root.lineHeight)
                     if (y1 < top) continue
                     if (y0 > bottom) break
-                    var stops = EditorText.indentStops(txt, startOff, t)
-                    for (var k = 1; k <= stops; ++k) {
+                    // Линии на каждой позиции табуляции левее текста строки
+                    // (под скобками родителя); пустые строки продолжают соседей.
+                    var guides = EditorText.guideCount(txt, ls, i, t)
+                    for (var k = 0; k < guides; ++k) {
                         var x = Math.round(lp + k * t * sw - left) + 0.5
                         ctx.beginPath()
                         ctx.moveTo(x, y0 - top)
@@ -398,8 +463,8 @@ PanelFrame {
                 }
 
                 // ── Активная линия парной скобки (акцентом) ───────────────
-                // Вертикаль на уровень глубже строки открывающей скобки,
-                // от низа её строки до верха строки закрывающей.
+                // Вертикаль от начала текста строки открывающей скобки (поверх
+                // её серой направляющей), от низа её строки до верха закрывающей.
                 var mp = editor.matchPair
                 if (mp) {
                     var a = Math.min(mp[0], mp[1])
@@ -512,15 +577,37 @@ PanelFrame {
                     }
                 }
 
-                // Enter / Tab обрабатываем сами (авто-отступ, тип табуляции).
+                // Клик/выделение мышью в отступе — по отпусканию кнопки каретка
+                // встаёт на ближайшую направляющую. PointHandler держит пассивный
+                // захват и не мешает TextArea; сигнал released у TextArea внутри
+                // Flickable не приходит. Привязка — после обработки события
+                // (callLater): клик внутри выделения TextArea ставит каретку уже
+                // на отпускании, после обработчика.
+                PointHandler {
+                    acceptedButtons: Qt.LeftButton
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    onActiveChanged: if (!active) Qt.callLater(root.snapCaretToIndentStops)
+                }
+
+                // Enter / Tab / Backspace / закрывающие скобки обрабатываем сами
+                // (модель отступов — EditorText.js).
                 Keys.onPressed: function (event) {
+                    const noCommand = !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
                     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                         root.insertNewline()
                         event.accepted = true
-                    } else if ((event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)
-                               && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+                    } else if ((event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) && noCommand) {
                         root.insertTab(event.key === Qt.Key_Backtab || !!(event.modifiers & Qt.ShiftModifier))
                         event.accepted = true
+                    } else if ((event.key === Qt.Key_Left || event.key === Qt.Key_Right) && noCommand) {
+                        event.accepted = root.indentCaretMove(event.key === Qt.Key_Right,
+                                                              !!(event.modifiers & Qt.ShiftModifier))
+                    } else if (event.key === Qt.Key_Backspace && noCommand
+                               && !(event.modifiers & Qt.ShiftModifier)) {
+                        event.accepted = root.smartBackspace()
+                    } else if (event.text === "}" || event.text === "]") {
+                        // По символу, а не по клавише: не зависит от раскладки.
+                        event.accepted = root.typeClosingBracket(event.text)
                     }
                 }
 

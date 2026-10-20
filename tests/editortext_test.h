@@ -20,6 +20,14 @@ private slots:
     void newlineInsertion_data();
     void newlineInsertion();
     void tabAndGuides();
+    void smartBackspace_data();
+    void smartBackspace();
+    void stickyIndentStops_data();
+    void stickyIndentStops();
+    void mouseSnapsToIndentStops_data();
+    void mouseSnapsToIndentStops();
+    void closingBracket_data();
+    void closingBracket();
     void blockIndentation_data();
     void blockIndentation();
 };

@@ -3,7 +3,7 @@
 ; Компиляция: открыть этот файл в Inno Setup и нажать Build, либо ISCC.exe DSLRay.iss
 
 #define AppName "DSLRay"
-#define AppVersion "0.3.0"
+#define AppVersion "0.4.0"
 #define AppPublisher "DSLRay"
 #define AppExe "appDSLRay.exe"
 
