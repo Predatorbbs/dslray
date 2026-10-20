@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     QGuiApplication::setApplicationDisplayName("DSLRay");
     QGuiApplication::setOrganizationName("DSLRay");
     QGuiApplication::setOrganizationDomain("dslray.local");
-    QGuiApplication::setApplicationVersion("0.3.0");
+    QGuiApplication::setApplicationVersion("0.4.0");
 
     // Packaging check: load the real UI without showing it or touching user state.
     const bool checkDeployment = app.arguments().contains(QStringLiteral("--check-deployment"));

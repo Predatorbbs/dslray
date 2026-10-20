@@ -26,9 +26,9 @@ PanelFrame {
 
     // Верх видимой области кода (символьное смещение) — приходит из CodeEditor.
     property int codeTopOffset: -1
-    // «Текущий» объект — последний, чьё начало уже выше верха видимой области.
-    // Объекты 0..currentItemIndex считаются пройденными.
-    readonly property int currentItemIndex: {
+    // «Текущий» объект по прокрутке — последний, чьё начало уже на верхней
+    // строке кода или выше. Объекты 0..currentItemIndex считаются пройденными.
+    readonly property int scrolledItemIndex: {
         if (!elements || elements.length === 0)
             return -1
         var last = -1
@@ -37,6 +37,24 @@ PanelFrame {
             else break
         }
         return last
+    }
+
+    // Объект, выбранный кликом, остаётся текущим, пока код не прокрутят:
+    // последние объекты файла нельзя поднять к верху, и расчёт по прокрутке
+    // показал бы предыдущий.
+    property int pinnedIndex: -1
+    property int pinnedTop: -1
+    readonly property int currentItemIndex:
+        pinnedIndex >= 0 && !!elements && pinnedIndex < elements.length && codeTopOffset === pinnedTop
+            ? pinnedIndex : scrolledItemIndex
+
+    // Клик по строке: перейти к объекту и закрепить его текущим.
+    function activate(row: int) {
+        if (!elements || row < 0 || row >= elements.length)
+            return
+        root.objectActivated(elements[row].index) // синхронно прокручивает код
+        root.pinnedIndex = row
+        root.pinnedTop = root.codeTopOffset
     }
 
     // Проверяет валидность JSON и собирает позиции всех "elementName".
@@ -159,7 +177,7 @@ PanelFrame {
                 id: rowMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: root.objectActivated(rowItem.modelData.index)
+                onClicked: root.activate(rowItem.index)
             }
         }
     }

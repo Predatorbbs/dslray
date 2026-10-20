@@ -28,7 +28,7 @@ Rectangle {
     property int    lineCount:   0
     property int    charCount:   0
     property int    tokenCount:  0
-    property string appVersion:  "0.3.0"
+    property string appVersion:  "0.4.0"
 
     RowLayout {
         anchors.fill: parent

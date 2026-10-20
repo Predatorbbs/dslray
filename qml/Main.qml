@@ -153,6 +153,7 @@ ApplicationWindow {
                         }
                     }
                     StructurePanel {
+                        objectName: "structurePanel"
                         anchors.top: filesPanel.bottom
                         anchors.topMargin: Theme.gap
                         anchors.left: parent.left
